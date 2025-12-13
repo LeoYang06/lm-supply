@@ -173,7 +173,7 @@ Models are cached following HuggingFace Hub conventions:
 
 ## Requirements
 
-- .NET 8.0+
+- .NET 10.0+
 - Windows, Linux, or macOS
 
 ---

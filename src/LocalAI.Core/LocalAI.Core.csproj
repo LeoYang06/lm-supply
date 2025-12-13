@@ -8,11 +8,27 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+    <!-- Reference managed assembly only - native binaries are downloaded on-demand via RuntimeManager -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" ExcludeAssets="native" />
   </ItemGroup>
+
+  <!-- Exclude native runtimes from NuGet package - they will be lazy-loaded -->
+  <ItemGroup>
+    <None Remove="runtimes\**\*" />
+  </ItemGroup>
+
+  <Target Name="ExcludeNativeAssets" BeforeTargets="GenerateNuspec">
+    <ItemGroup>
+      <_PackageFiles Remove="@(_PackageFiles)" Condition="$([System.String]::Copy('%(Identity)').Contains('runtimes'))" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="runtime-manifest.json" />
   </ItemGroup>
 
 </Project>

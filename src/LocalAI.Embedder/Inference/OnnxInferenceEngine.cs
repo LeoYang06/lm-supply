@@ -1,3 +1,5 @@
+using LocalAI.Download;
+using LocalAI.Inference;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 
@@ -23,23 +25,58 @@ internal sealed class OnnxInferenceEngine : IDisposable
     }
 
     /// <summary>
+    /// Creates an inference engine from an ONNX model file asynchronously.
+    /// This method ensures runtime binaries are available before creating the session.
+    /// </summary>
+    /// <param name="modelPath">Path to the ONNX model file.</param>
+    /// <param name="provider">The execution provider to use.</param>
+    /// <param name="progress">Optional progress reporter for binary downloads.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A configured inference engine.</returns>
+    public static async Task<OnnxInferenceEngine> CreateAsync(
+        string modelPath,
+        ExecutionProvider provider,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(modelPath))
+            throw new ModelNotFoundException("Model file not found", modelPath);
+
+        var session = await OnnxSessionFactory.CreateAsync(
+            modelPath,
+            provider,
+            ConfigureOptions,
+            progress,
+            cancellationToken);
+
+        return CreateFromSession(session);
+    }
+
+    /// <summary>
     /// Creates an inference engine from an ONNX model file.
+    /// Note: This assumes runtime binaries are already available. For lazy loading, use CreateAsync.
     /// </summary>
     public static OnnxInferenceEngine Create(string modelPath, ExecutionProvider provider)
     {
         if (!File.Exists(modelPath))
             throw new ModelNotFoundException("Model file not found", modelPath);
 
-        var session = OnnxSessionFactory.Create(modelPath, provider, options =>
-        {
-            options.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
-            options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
-            options.EnableCpuMemArena = true;
-            options.EnableMemoryPattern = true;
-            options.IntraOpNumThreads = Environment.ProcessorCount;
-            options.InterOpNumThreads = 1;
-        });
+        var session = OnnxSessionFactory.Create(modelPath, provider, ConfigureOptions);
+        return CreateFromSession(session);
+    }
 
+    private static void ConfigureOptions(SessionOptions options)
+    {
+        options.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
+        options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
+        options.EnableCpuMemArena = true;
+        options.EnableMemoryPattern = true;
+        options.IntraOpNumThreads = Environment.ProcessorCount;
+        options.InterOpNumThreads = 1;
+    }
+
+    private static OnnxInferenceEngine CreateFromSession(InferenceSession session)
+    {
         // Detect model configuration from metadata
         var inputNames = session.InputMetadata.Keys.ToHashSet();
         bool hasTokenTypeIds = inputNames.Contains("token_type_ids");

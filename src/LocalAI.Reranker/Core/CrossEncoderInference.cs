@@ -1,3 +1,5 @@
+using LocalAI.Download;
+using LocalAI.Inference;
 using LocalAI.Reranker.Models;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -36,7 +38,51 @@ internal sealed class CrossEncoderInference : IDisposable
     }
 
     /// <summary>
+    /// Creates an inference engine from an ONNX model file asynchronously.
+    /// This method ensures runtime binaries are available before creating the session.
+    /// </summary>
+    /// <param name="modelPath">Path to the ONNX model.</param>
+    /// <param name="modelInfo">Model information.</param>
+    /// <param name="provider">Execution provider for inference.</param>
+    /// <param name="threadCount">Number of inference threads.</param>
+    /// <param name="progress">Optional progress reporter for binary downloads.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Configured inference engine.</returns>
+    public static async Task<CrossEncoderInference> CreateAsync(
+        string modelPath,
+        ModelInfo modelInfo,
+        ExecutionProvider provider = ExecutionProvider.Auto,
+        int? threadCount = null,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelPath);
+
+        if (!File.Exists(modelPath))
+        {
+            throw new FileNotFoundException($"Model file not found: {modelPath}", modelPath);
+        }
+
+        try
+        {
+            var session = await OnnxSessionFactory.CreateAsync(
+                modelPath,
+                provider,
+                options => ConfigureSessionOptions(options, threadCount),
+                progress,
+                cancellationToken);
+
+            return CreateFromSession(session, modelInfo);
+        }
+        catch (Exception ex) when (ex is not FileNotFoundException)
+        {
+            throw new InferenceException($"Failed to load ONNX model from {modelPath}", ex);
+        }
+    }
+
+    /// <summary>
     /// Creates an inference engine from an ONNX model file.
+    /// Note: This assumes runtime binaries are already available. For lazy loading, use CreateAsync.
     /// </summary>
     /// <param name="modelPath">Path to the ONNX model.</param>
     /// <param name="modelInfo">Model information.</param>
@@ -61,25 +107,40 @@ internal sealed class CrossEncoderInference : IDisposable
         try
         {
             var session = new InferenceSession(modelPath, sessionOptions);
-
-            // Detect input names
-            var inputNames = session.InputMetadata.Keys.ToArray();
-            var hasTokenTypeIds = inputNames.Contains("token_type_ids");
-
-            // Detect output name
-            var outputName = session.OutputMetadata.Keys.First();
-
-            return new CrossEncoderInference(
-                session,
-                inputNames,
-                outputName,
-                modelInfo.OutputShape,
-                hasTokenTypeIds);
+            return CreateFromSession(session, modelInfo);
         }
         catch (Exception ex)
         {
             throw new InferenceException($"Failed to load ONNX model from {modelPath}", ex);
         }
+    }
+
+    private static CrossEncoderInference CreateFromSession(InferenceSession session, ModelInfo modelInfo)
+    {
+        // Detect input names
+        var inputNames = session.InputMetadata.Keys.ToArray();
+        var hasTokenTypeIds = inputNames.Contains("token_type_ids");
+
+        // Detect output name
+        var outputName = session.OutputMetadata.Keys.First();
+
+        return new CrossEncoderInference(
+            session,
+            inputNames,
+            outputName,
+            modelInfo.OutputShape,
+            hasTokenTypeIds);
+    }
+
+    private static void ConfigureSessionOptions(SessionOptions options, int? threadCount)
+    {
+        options.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
+        options.ExecutionMode = ExecutionMode.ORT_PARALLEL;
+
+        // Set thread count
+        var threads = threadCount ?? Environment.ProcessorCount;
+        options.IntraOpNumThreads = threads;
+        options.InterOpNumThreads = Math.Max(1, threads / 2);
     }
 
     /// <summary>
@@ -199,109 +260,15 @@ internal sealed class CrossEncoderInference : IDisposable
 
     private static SessionOptions CreateSessionOptions(ExecutionProvider provider, int? threadCount)
     {
-        var options = new SessionOptions
-        {
-            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
-            ExecutionMode = ExecutionMode.ORT_PARALLEL
-        };
+        var options = new SessionOptions();
 
-        // Set thread count
-        var threads = threadCount ?? Environment.ProcessorCount;
-        options.IntraOpNumThreads = threads;
-        options.InterOpNumThreads = Math.Max(1, threads / 2);
+        // Apply thread count and optimization settings
+        ConfigureSessionOptions(options, threadCount);
 
-        // Configure execution provider
-        ConfigureExecutionProvider(options, provider);
+        // Configure execution provider using shared factory
+        OnnxSessionFactory.ConfigureExecutionProvider(options, provider);
 
         return options;
-    }
-
-    private static void ConfigureExecutionProvider(SessionOptions options, ExecutionProvider provider)
-    {
-        switch (provider)
-        {
-            case ExecutionProvider.Cpu:
-                // CPU is default, no action needed
-                break;
-
-            case ExecutionProvider.Cuda:
-                TryAddCuda(options);
-                break;
-
-            case ExecutionProvider.DirectML:
-                TryAddDirectML(options);
-                break;
-
-            case ExecutionProvider.CoreML:
-                TryAddCoreML(options);
-                break;
-
-            case ExecutionProvider.Auto:
-            default:
-                TryAddBestAvailableProvider(options);
-                break;
-        }
-    }
-
-    private static void TryAddBestAvailableProvider(SessionOptions options)
-    {
-        // Try CUDA first (NVIDIA)
-        if (TryAddCuda(options)) return;
-
-        // Try DirectML (Windows) or CoreML (macOS)
-        if (OperatingSystem.IsWindows())
-        {
-            if (TryAddDirectML(options)) return;
-        }
-        else if (OperatingSystem.IsMacOS())
-        {
-            if (TryAddCoreML(options)) return;
-        }
-
-        // Fall back to CPU (no action needed, it's the default)
-    }
-
-    private static bool TryAddCuda(SessionOptions options)
-    {
-        try
-        {
-            options.AppendExecutionProvider_CUDA();
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool TryAddDirectML(SessionOptions options)
-    {
-        if (!OperatingSystem.IsWindows()) return false;
-
-        try
-        {
-            options.AppendExecutionProvider_DML();
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool TryAddCoreML(SessionOptions options)
-    {
-        if (!OperatingSystem.IsMacOS()) return false;
-
-        try
-        {
-            options.AppendExecutionProvider_CoreML();
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     public void Dispose()

@@ -33,3 +33,7 @@ Thumbs.db
 # Local settings
 *.local.json
 appsettings.local.json
+
+# Local
+research-docs/
+.serena/
