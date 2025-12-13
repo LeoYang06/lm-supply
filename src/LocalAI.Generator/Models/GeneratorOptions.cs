@@ -51,6 +51,34 @@ public sealed class GeneratorOptions
     public bool IncludePromptInOutput { get; set; }
 
     /// <summary>
+    /// Gets or sets whether to enable random sampling.
+    /// When false, uses greedy decoding (always picks highest probability token).
+    /// Defaults to true.
+    /// </summary>
+    public bool DoSample { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the number of beams for beam search.
+    /// Set to 1 to disable beam search.
+    /// Note: Beam search disables KV cache sharing for better quality.
+    /// Defaults to 1.
+    /// </summary>
+    public int NumBeams { get; set; } = 1;
+
+    /// <summary>
+    /// Gets or sets whether to share buffer between past and present KV cache.
+    /// Improves memory efficiency but incompatible with beam search (num_beams > 1).
+    /// Defaults to true.
+    /// </summary>
+    public bool PastPresentShareBuffer { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the maximum number of new tokens to generate (excluding prompt).
+    /// If null, limited only by MaxTokens (prompt + generated).
+    /// </summary>
+    public int? MaxNewTokens { get; set; }
+
+    /// <summary>
     /// Creates a default instance of GeneratorOptions.
     /// </summary>
     public static GeneratorOptions Default => new();

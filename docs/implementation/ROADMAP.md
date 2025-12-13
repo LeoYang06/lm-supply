@@ -2,6 +2,35 @@
 
 > Based on Research 01-06 findings and detailed analysis reports
 
+## Implementation Status (Updated)
+
+| Phase | Description | Status | Tests |
+|-------|-------------|--------|-------|
+| Phase 1 | Project Foundation | ✅ Complete | 16 |
+| Phase 2 | Core Inference Engine | ✅ Complete | 9 |
+| Phase 3 | Streaming & Concurrency | ✅ Complete | 12 |
+| Phase 4 | Model Registry & Licensing | ✅ Complete | 25 |
+| Phase 5 | Speculative Decoding (Interface) | ✅ Complete | - |
+| Phase 6 | Builder API & Model Factory | ✅ Complete | - |
+
+**Total Tests: 62 passing**
+
+### Key Implementations from Research 05-06
+
+| Feature | Implementation | Source |
+|---------|---------------|--------|
+| GeneratorOptions Extensions | DoSample, NumBeams, PastPresentShareBuffer, MaxNewTokens | research-05 |
+| Concurrency Limiting | SemaphoreSlim in OnnxGeneratorModel | research-05 |
+| Memory Estimation | MemoryEstimator with KV cache calculation | research-05 |
+| License Tiering | ModelRegistry with MIT/Conditional classification | research-06 |
+| Model Pool | GeneratorPool with LRU eviction | research-06 |
+| Speculative Decoding | ISpeculativeDecoder interface prepared | research-06 |
+| Builder API | TextGeneratorBuilder fluent pattern | Phase 6 |
+| WellKnownModels | Model presets with license info | Phase 6 |
+| Model Factory | OnnxGeneratorModelFactory with caching | Phase 6 |
+
+---
+
 ## Executive Summary
 
 | Item | Decision | Rationale |

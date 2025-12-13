@@ -34,4 +34,11 @@ public sealed class GeneratorModelOptions
     /// If null, uses the model's default context length.
     /// </summary>
     public int? MaxContextLength { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum number of concurrent generation requests.
+    /// Used to prevent resource exhaustion during high load.
+    /// Defaults to 1 (sequential processing) for stability.
+    /// </summary>
+    public int MaxConcurrentRequests { get; set; } = 1;
 }

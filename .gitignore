@@ -35,5 +35,7 @@ Thumbs.db
 appsettings.local.json
 
 # Local
+*.local.md
 research-docs/
 .serena/
+docs/research/

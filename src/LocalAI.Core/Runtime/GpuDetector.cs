@@ -6,7 +6,7 @@ namespace LocalAI.Runtime;
 /// Detects GPU hardware capabilities without requiring CUDA toolkit or other SDK installations.
 /// Uses NVML for NVIDIA detection (ships with display drivers).
 /// </summary>
-internal static class GpuDetector
+public static class GpuDetector
 {
     /// <summary>
     /// Detects the primary GPU on the system.

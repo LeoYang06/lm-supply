@@ -42,4 +42,47 @@ public class GeneratorOptionsTests
         options.TopP.Should().Be(0.5f);
         options.TopK.Should().Be(10);
     }
+
+    [Fact]
+    public void Default_HasExpectedSamplingOptions()
+    {
+        // Act
+        var options = GeneratorOptions.Default;
+
+        // Assert - New options from research-05
+        options.DoSample.Should().BeTrue();
+        options.NumBeams.Should().Be(1);
+        options.PastPresentShareBuffer.Should().BeTrue();
+        options.MaxNewTokens.Should().BeNull();
+    }
+
+    [Fact]
+    public void BeamSearch_Configuration()
+    {
+        // Arrange
+        var options = new GeneratorOptions
+        {
+            NumBeams = 4,
+            DoSample = false
+        };
+
+        // Assert
+        options.NumBeams.Should().Be(4);
+        options.DoSample.Should().BeFalse();
+    }
+
+    [Fact]
+    public void MaxNewTokens_CanBeLimited()
+    {
+        // Arrange
+        var options = new GeneratorOptions
+        {
+            MaxTokens = 2048,
+            MaxNewTokens = 100
+        };
+
+        // Assert
+        options.MaxTokens.Should().Be(2048);
+        options.MaxNewTokens.Should().Be(100);
+    }
 }

@@ -1,5 +1,6 @@
 using LocalAI.Generator.Abstractions;
 using LocalAI.Generator.Models;
+using LocalAI.Runtime;
 using Microsoft.ML.OnnxRuntimeGenAI;
 using OnnxGenerator = Microsoft.ML.OnnxRuntimeGenAI.Generator;
 
@@ -15,6 +16,8 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
     private readonly IChatFormatter _chatFormatter;
     private readonly GeneratorModelOptions _options;
     private readonly string _modelPath;
+    private readonly ExecutionProvider _resolvedProvider;
+    private readonly SemaphoreSlim _concurrencyLimiter;
     private bool _disposed;
 
     public OnnxGeneratorModel(
@@ -28,9 +31,17 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         _chatFormatter = chatFormatter;
         _options = options;
 
+        // Resolve Auto to actual provider using hardware detection
+        _resolvedProvider = HardwareDetector.ResolveProvider(options.Provider);
+
         // Load model and tokenizer
         _model = new Model(modelPath);
         _tokenizer = new Tokenizer(_model);
+
+        // Initialize concurrency limiter
+        _concurrencyLimiter = new SemaphoreSlim(
+            Math.Max(1, options.MaxConcurrentRequests),
+            Math.Max(1, options.MaxConcurrentRequests));
 
         // TODO: Detect from model config
         MaxContextLength = options.MaxContextLength ?? 4096;
@@ -54,33 +65,52 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         ThrowIfDisposed();
         options ??= GeneratorOptions.Default;
 
-        var sequences = _tokenizer.Encode(prompt);
-        using var generatorParams = CreateGeneratorParams(options);
-
-        using var tokenizerStream = _tokenizer.CreateStream();
-        using var generator = new OnnxGenerator(_model, generatorParams);
-        generator.AppendTokenSequences(sequences);
-
-        while (!generator.IsDone())
+        // Acquire concurrency slot
+        await _concurrencyLimiter.WaitAsync(cancellationToken);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            var sequences = _tokenizer.Encode(prompt);
+            using var generatorParams = CreateGeneratorParams(options);
 
-            generator.GenerateNextToken();
+            using var tokenizerStream = _tokenizer.CreateStream();
+            using var generator = new OnnxGenerator(_model, generatorParams);
+            generator.AppendTokenSequences(sequences);
 
-            var outputTokens = generator.GetSequence(0);
-            var newToken = outputTokens[^1];
-            var decoded = tokenizerStream.Decode(newToken);
+            var generatedTokenCount = 0;
+            var maxNewTokens = options.MaxNewTokens ?? int.MaxValue;
 
-            // Check stop sequences
-            if (ShouldStop(decoded, options.StopSequences))
+            while (!generator.IsDone())
             {
-                yield break;
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Check MaxNewTokens limit
+                if (generatedTokenCount >= maxNewTokens)
+                {
+                    yield break;
+                }
+
+                generator.GenerateNextToken();
+                generatedTokenCount++;
+
+                var outputTokens = generator.GetSequence(0);
+                var newToken = outputTokens[^1];
+                var decoded = tokenizerStream.Decode(newToken);
+
+                // Check stop sequences
+                if (ShouldStop(decoded, options.StopSequences))
+                {
+                    yield break;
+                }
+
+                yield return decoded;
+
+                // Yield to allow other tasks
+                await Task.Yield();
             }
-
-            yield return decoded;
-
-            // Yield to allow other tasks
-            await Task.Yield();
+        }
+        finally
+        {
+            _concurrencyLimiter.Release();
         }
     }
 
@@ -147,7 +177,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         _modelPath,
         MaxContextLength,
         _chatFormatter.FormatName,
-        "CPU"); // TODO: Detect actual provider
+        _resolvedProvider.ToString());
 
     private GeneratorParams CreateGeneratorParams(GeneratorOptions options)
     {
@@ -158,6 +188,19 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         generatorParams.SetSearchOption("top_p", options.TopP);
         generatorParams.SetSearchOption("top_k", options.TopK);
         generatorParams.SetSearchOption("repetition_penalty", options.RepetitionPenalty);
+        generatorParams.SetSearchOption("do_sample", options.DoSample);
+
+        // Beam search configuration
+        if (options.NumBeams > 1)
+        {
+            generatorParams.SetSearchOption("num_beams", options.NumBeams);
+            // Beam search requires separate past/present buffers
+            generatorParams.SetSearchOption("past_present_share_buffer", false);
+        }
+        else
+        {
+            generatorParams.SetSearchOption("past_present_share_buffer", options.PastPresentShareBuffer);
+        }
 
         return generatorParams;
     }
@@ -178,7 +221,11 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
             TopK = options.TopK,
             RepetitionPenalty = options.RepetitionPenalty,
             StopSequences = merged,
-            IncludePromptInOutput = options.IncludePromptInOutput
+            IncludePromptInOutput = options.IncludePromptInOutput,
+            DoSample = options.DoSample,
+            NumBeams = options.NumBeams,
+            PastPresentShareBuffer = options.PastPresentShareBuffer,
+            MaxNewTokens = options.MaxNewTokens
         };
     }
 
@@ -213,6 +260,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         }
 
         _disposed = true;
+        _concurrencyLimiter.Dispose();
         _tokenizer.Dispose();
         _model.Dispose();
 
