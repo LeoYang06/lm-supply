@@ -150,18 +150,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### Release Process
 
-Releases are automated via GitHub Actions:
+Releases are automated via GitHub Actions when `Directory.Build.props` is updated:
 
-```bash
-# Release all packages with same version
-git tag v0.5.0
-git push origin v0.5.0
-
-# Release individual packages
-git tag core-v0.1.1
-git tag embedder-v0.4.1
-git tag reranker-v0.2.1
-git push origin --tags
-```
+1. Update the `<Version>` in `Directory.Build.props`
+2. Commit and push to main
+3. CI automatically publishes all packages to NuGet and creates a GitHub release
 
 Requires `NUGET_API_KEY` secret configured in GitHub repository settings.

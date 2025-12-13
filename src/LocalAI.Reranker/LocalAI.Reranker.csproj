@@ -3,7 +3,6 @@
   <PropertyGroup>
     <!-- Package Metadata -->
     <PackageId>LocalAI.Reranker</PackageId>
-    <Version>0.2.0</Version>
     <Description>A lightweight, zero-configuration semantic reranker for .NET. Supports multiple cross-encoder models with automatic download, GPU acceleration, and HuggingFace caching.</Description>
     <PackageTags>reranker;semantic-search;rag;nlp;machine-learning;onnx;cross-encoder;bert;retrieval;ranking;gpu;cuda;directml</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>

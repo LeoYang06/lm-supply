@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>0.1.0</Version>
     <PackageId>LocalAI.Core</PackageId>
     <Description>Core components for LocalAI libraries: HuggingFace model downloading, caching, GPU execution providers, and common utilities.</Description>
     <PackageTags>localai;huggingface;onnx;ml;ai;gpu;cuda;directml</PackageTags>

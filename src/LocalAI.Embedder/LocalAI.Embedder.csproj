@@ -3,7 +3,6 @@
   <PropertyGroup>
     <!-- Package Metadata -->
     <PackageId>LocalAI.Embedder</PackageId>
-    <Version>0.4.0</Version>
     <Description>A simple .NET library for local text embeddings with automatic model downloading from HuggingFace. Supports CUDA, DirectML, and CoreML GPU acceleration.</Description>
     <PackageTags>embeddings;ai;ml;onnx;bert;nlp;vector;semantic-search;huggingface;gpu;cuda;directml</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>

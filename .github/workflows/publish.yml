@@ -2,8 +2,9 @@ name: Publish to NuGet
 
 on:
   push:
-    tags:
-      - 'v*'  # Triggers on version tags like v0.1.0, v1.0.0
+    branches: [main]
+    paths:
+      - 'Directory.Build.props'
 
 jobs:
   publish:
@@ -18,52 +19,65 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Extract version from tag
+      - name: Extract version from Directory.Build.props
         id: version
         run: |
-          TAG=${GITHUB_REF#refs/tags/v}
-          echo "VERSION=$TAG" >> $GITHUB_OUTPUT
-          echo "Extracted version: $TAG"
+          VERSION=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
+      - name: Check if version already published
+        id: check
+        run: |
+          CORE_EXISTS=$(dotnet nuget search LocalAI.Core --source https://api.nuget.org/v3/index.json | grep -c "${{ steps.version.outputs.VERSION }}" || true)
+          if [ "$CORE_EXISTS" -gt "0" ]; then
+            echo "SKIP=true" >> $GITHUB_OUTPUT
+            echo "Version ${{ steps.version.outputs.VERSION }} already exists on NuGet"
+          else
+            echo "SKIP=false" >> $GITHUB_OUTPUT
+            echo "Version ${{ steps.version.outputs.VERSION }} is new, will publish"
+          fi
 
       - name: Restore dependencies
+        if: steps.check.outputs.SKIP != 'true'
         run: dotnet restore
 
       - name: Build
+        if: steps.check.outputs.SKIP != 'true'
         run: dotnet build --configuration Release --no-restore
 
       - name: Test
+        if: steps.check.outputs.SKIP != 'true' && hashFiles('tests/**/*.csproj') != ''
         run: dotnet test --configuration Release --no-build --verbosity normal
-        if: hashFiles('tests/**/*.csproj') != ''
 
-      - name: Pack with version from tag
-        run: |
-          dotnet pack src/LocalAI.Core/LocalAI.Core.csproj \
-            --configuration Release \
-            --output ./artifacts \
-            -p:PackageVersion=${{ steps.version.outputs.VERSION }}
-
-          dotnet pack src/LocalAI.Embedder/LocalAI.Embedder.csproj \
-            --configuration Release \
-            --output ./artifacts \
-            -p:PackageVersion=${{ steps.version.outputs.VERSION }}
-
-          dotnet pack src/LocalAI.Reranker/LocalAI.Reranker.csproj \
-            --configuration Release \
-            --output ./artifacts \
-            -p:PackageVersion=${{ steps.version.outputs.VERSION }}
+      - name: Pack
+        if: steps.check.outputs.SKIP != 'true'
+        run: dotnet pack --configuration Release --output ./artifacts --no-build
 
       - name: Push to NuGet
+        if: steps.check.outputs.SKIP != 'true'
         run: |
           for package in ./artifacts/*.nupkg; do
+            echo "Publishing $package"
             dotnet nuget push "$package" \
               --api-key ${{ secrets.NUGET_API_KEY }} \
               --source https://api.nuget.org/v3/index.json \
               --skip-duplicate
           done
 
+      - name: Create Git Tag
+        if: steps.check.outputs.SKIP != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.version.outputs.VERSION }}" -m "Release v${{ steps.version.outputs.VERSION }}"
+          git push origin "v${{ steps.version.outputs.VERSION }}"
+
       - name: Create GitHub Release
+        if: steps.check.outputs.SKIP != 'true'
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
           files: ./artifacts/*.nupkg
           generate_release_notes: true
         env:
