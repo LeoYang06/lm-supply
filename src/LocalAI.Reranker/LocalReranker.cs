@@ -19,7 +19,7 @@ public static class LocalReranker
     /// <param name="progress">Optional progress reporting for downloads.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A loaded reranker ready for inference.</returns>
-    public static async Task<IReranker> LoadAsync(
+    public static async Task<IRerankerModel> LoadAsync(
         string modelIdOrPath,
         RerankerOptions? options = null,
         IProgress<DownloadProgress>? progress = null,

@@ -2,6 +2,7 @@ namespace LocalAI.Reranker.Models;
 
 /// <summary>
 /// Provides definitions for built-in supported models.
+/// Updated: 2025-01 based on BEIR and MS MARCO benchmarks.
 /// </summary>
 public static class DefaultModels
 {
@@ -12,7 +13,8 @@ public static class DefaultModels
 
     /// <summary>
     /// MS MARCO MiniLM L6 v2 - Fast and lightweight model.
-    /// ~90MB, 512 tokens, good quality for English.
+    /// 22M params, 512 tokens, proven performer for English.
+    /// Best speed/quality balance for most use cases.
     /// </summary>
     public static ModelInfo MsMarcoMiniLML6V2 { get; } = new()
     {
@@ -24,27 +26,7 @@ public static class DefaultModels
         SizeBytes = 90_000_000,
         OnnxFile = "onnx/model.onnx",
         TokenizerFile = "tokenizer.json",
-        Description = "Balanced speed and quality for English text",
-        IsMultilingual = false,
-        Architecture = ModelArchitecture.Bert,
-        OutputShape = OutputShape.SingleLogit
-    };
-
-    /// <summary>
-    /// MS MARCO MiniLM L12 v2 - Higher quality model.
-    /// ~134MB, 512 tokens, better accuracy.
-    /// </summary>
-    public static ModelInfo MsMarcoMiniLML12V2 { get; } = new()
-    {
-        Id = "cross-encoder/ms-marco-MiniLM-L-12-v2",
-        Alias = "quality",
-        DisplayName = "MS MARCO MiniLM L12",
-        Parameters = 33_400_000,
-        MaxSequenceLength = 512,
-        SizeBytes = 134_000_000,
-        OnnxFile = "onnx/model.onnx",
-        TokenizerFile = "tokenizer.json",
-        Description = "Higher quality at the cost of speed",
+        Description = "Default: Best speed/quality balance for English",
         IsMultilingual = false,
         Architecture = ModelArchitecture.Bert,
         OutputShape = OutputShape.SingleLogit
@@ -52,7 +34,8 @@ public static class DefaultModels
 
     /// <summary>
     /// MS MARCO TinyBERT L2 v2 - Ultra-fast lightweight model.
-    /// ~18MB, 512 tokens, basic quality.
+    /// 4.4M params, 512 tokens, fastest inference.
+    /// Best for latency-critical applications.
     /// </summary>
     public static ModelInfo MsMarcoTinyBertL2V2 { get; } = new()
     {
@@ -64,15 +47,79 @@ public static class DefaultModels
         SizeBytes = 18_000_000,
         OnnxFile = "onnx/model.onnx",
         TokenizerFile = "tokenizer.json",
-        Description = "Ultra-fast for latency-critical applications",
+        Description = "Fast: Ultra-lightweight for latency-critical apps",
         IsMultilingual = false,
         Architecture = ModelArchitecture.Bert,
         OutputShape = OutputShape.SingleLogit
     };
 
     /// <summary>
-    /// BGE Reranker v2 M3 - Best quality multilingual model.
-    /// ~1.1GB, 8192 tokens, 100+ languages.
+    /// MS MARCO MiniLM L12 v2 - Higher quality English model.
+    /// 33M params, 512 tokens, better accuracy than L6.
+    /// Legacy quality option, consider BGE Reranker Base for better results.
+    /// </summary>
+    public static ModelInfo MsMarcoMiniLML12V2 { get; } = new()
+    {
+        Id = "cross-encoder/ms-marco-MiniLM-L-12-v2",
+        Alias = "ms-marco-l12",
+        DisplayName = "MS MARCO MiniLM L12",
+        Parameters = 33_400_000,
+        MaxSequenceLength = 512,
+        SizeBytes = 134_000_000,
+        OnnxFile = "onnx/model.onnx",
+        TokenizerFile = "tokenizer.json",
+        Description = "Legacy quality: Better accuracy than L6, English only",
+        IsMultilingual = false,
+        Architecture = ModelArchitecture.Bert,
+        OutputShape = OutputShape.SingleLogit
+    };
+
+    /// <summary>
+    /// BGE Reranker Base - Quality multilingual model (2024 release).
+    /// 278M params, 512 tokens, excellent accuracy.
+    /// Recommended quality option with multilingual support.
+    /// </summary>
+    public static ModelInfo BgeRerankerBase { get; } = new()
+    {
+        Id = "BAAI/bge-reranker-base",
+        Alias = "quality",
+        DisplayName = "BGE Reranker Base",
+        Parameters = 278_000_000,
+        MaxSequenceLength = 512,
+        SizeBytes = 440_000_000,
+        OnnxFile = "onnx/model.onnx",
+        TokenizerFile = "tokenizer.json",
+        Description = "Quality: 2024 release, excellent accuracy, multilingual",
+        IsMultilingual = true,
+        Architecture = ModelArchitecture.XlmRoberta,
+        OutputShape = OutputShape.SingleLogit
+    };
+
+    /// <summary>
+    /// BGE Reranker Large - Highest accuracy model.
+    /// 560M params, 512 tokens, best quality.
+    /// Best for quality-critical applications.
+    /// </summary>
+    public static ModelInfo BgeRerankerLarge { get; } = new()
+    {
+        Id = "BAAI/bge-reranker-large",
+        Alias = "large",
+        DisplayName = "BGE Reranker Large",
+        Parameters = 560_000_000,
+        MaxSequenceLength = 512,
+        SizeBytes = 1_100_000_000,
+        OnnxFile = "onnx/model.onnx",
+        TokenizerFile = "tokenizer.json",
+        Description = "Large: Highest accuracy, quality-critical apps",
+        IsMultilingual = true,
+        Architecture = ModelArchitecture.XlmRoberta,
+        OutputShape = OutputShape.SingleLogit
+    };
+
+    /// <summary>
+    /// BGE Reranker v2 M3 - Best multilingual long-context model.
+    /// 568M params, 8192 tokens, 100+ languages.
+    /// Best for multilingual and long document scenarios.
     /// </summary>
     public static ModelInfo BgeRerankerV2M3 { get; } = new()
     {
@@ -84,27 +131,7 @@ public static class DefaultModels
         SizeBytes = 1_100_000_000,
         OnnxFile = "onnx/model.onnx",
         TokenizerFile = "tokenizer.json",
-        Description = "Best quality, multilingual support, long context",
-        IsMultilingual = true,
-        Architecture = ModelArchitecture.XlmRoberta,
-        OutputShape = OutputShape.SingleLogit
-    };
-
-    /// <summary>
-    /// BGE Reranker Base - Good multilingual model.
-    /// ~440MB, 512 tokens, multilingual.
-    /// </summary>
-    public static ModelInfo BgeRerankerBase { get; } = new()
-    {
-        Id = "BAAI/bge-reranker-base",
-        Alias = "bge-base",
-        DisplayName = "BGE Reranker Base",
-        Parameters = 278_000_000,
-        MaxSequenceLength = 512,
-        SizeBytes = 440_000_000,
-        OnnxFile = "onnx/model.onnx",
-        TokenizerFile = "tokenizer.json",
-        Description = "Good quality multilingual model",
+        Description = "Multilingual: 8K context, 100+ languages, long docs",
         IsMultilingual = true,
         Architecture = ModelArchitecture.XlmRoberta,
         OutputShape = OutputShape.SingleLogit
@@ -116,9 +143,10 @@ public static class DefaultModels
     public static IReadOnlyList<ModelInfo> All { get; } =
     [
         MsMarcoMiniLML6V2,
-        MsMarcoMiniLML12V2,
         MsMarcoTinyBertL2V2,
-        BgeRerankerV2M3,
-        BgeRerankerBase
+        MsMarcoMiniLML12V2,
+        BgeRerankerBase,
+        BgeRerankerLarge,
+        BgeRerankerV2M3
     ];
 }

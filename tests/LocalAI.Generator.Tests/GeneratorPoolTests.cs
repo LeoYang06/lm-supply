@@ -43,7 +43,7 @@ public class GeneratorPoolTests : IAsyncDisposable
         var modelId = "microsoft/Phi-3.5-mini-instruct-onnx";
         var mockModel = CreateMockModel(modelId);
 
-        _mockFactory.CreateAsync(modelId, Arg.Any<GeneratorModelOptions?>(), Arg.Any<CancellationToken>())
+        _mockFactory.LoadAsync(modelId, Arg.Any<GeneratorOptions?>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(mockModel));
 
         // Act
@@ -62,7 +62,7 @@ public class GeneratorPoolTests : IAsyncDisposable
         var modelId = "microsoft/Phi-3.5-mini-instruct-onnx";
         var mockModel = CreateMockModel(modelId);
 
-        _mockFactory.CreateAsync(modelId, Arg.Any<GeneratorModelOptions?>(), Arg.Any<CancellationToken>())
+        _mockFactory.LoadAsync(modelId, Arg.Any<GeneratorOptions?>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(mockModel));
 
         // Act
@@ -71,7 +71,7 @@ public class GeneratorPoolTests : IAsyncDisposable
 
         // Assert
         model1.Should().BeSameAs(model2);
-        await _mockFactory.Received(1).CreateAsync(modelId, Arg.Any<GeneratorModelOptions?>(), Arg.Any<CancellationToken>());
+        await _mockFactory.Received(1).LoadAsync(modelId, Arg.Any<GeneratorOptions?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class GeneratorPoolTests : IAsyncDisposable
         var modelId = "microsoft/Phi-3.5-mini-instruct-onnx";
         var mockModel = CreateMockModel(modelId);
 
-        _mockFactory.CreateAsync(modelId, Arg.Any<GeneratorModelOptions?>(), Arg.Any<CancellationToken>())
+        _mockFactory.LoadAsync(modelId, Arg.Any<GeneratorOptions?>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(mockModel));
 
         await _pool.GetOrLoadAsync(modelId);
@@ -104,15 +104,15 @@ public class GeneratorPoolTests : IAsyncDisposable
         var mockModel1 = CreateMockModel(model1Id);
         var mockModel2 = CreateMockModel(model2Id);
 
-        _mockFactory.CreateAsync(
+        _mockFactory.LoadAsync(
                 Arg.Is<string>(s => s == model1Id),
-                Arg.Any<GeneratorModelOptions?>(),
+                Arg.Any<GeneratorOptions?>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(mockModel1));
 
-        _mockFactory.CreateAsync(
+        _mockFactory.LoadAsync(
                 Arg.Is<string>(s => s == model2Id),
-                Arg.Any<GeneratorModelOptions?>(),
+                Arg.Any<GeneratorOptions?>(),
                 Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(mockModel2));
 
@@ -133,7 +133,7 @@ public class GeneratorPoolTests : IAsyncDisposable
         var modelId = "microsoft/Phi-3.5-mini-instruct-onnx";
         var mockModel = CreateMockModel(modelId);
 
-        _mockFactory.CreateAsync(modelId, Arg.Any<GeneratorModelOptions?>(), Arg.Any<CancellationToken>())
+        _mockFactory.LoadAsync(modelId, Arg.Any<GeneratorOptions?>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(mockModel));
 
         await _pool.GetOrLoadAsync(modelId);

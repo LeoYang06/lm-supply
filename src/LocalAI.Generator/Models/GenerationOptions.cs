@@ -1,9 +1,9 @@
 namespace LocalAI.Generator.Models;
 
 /// <summary>
-/// Configuration options for text generation.
+/// Configuration options for text generation (inference parameters).
 /// </summary>
-public sealed class GeneratorOptions
+public sealed class GenerationOptions
 {
     /// <summary>
     /// Gets or sets the maximum number of tokens to generate.
@@ -79,14 +79,14 @@ public sealed class GeneratorOptions
     public int? MaxNewTokens { get; set; }
 
     /// <summary>
-    /// Creates a default instance of GeneratorOptions.
+    /// Creates a default instance of GenerationOptions.
     /// </summary>
-    public static GeneratorOptions Default => new();
+    public static GenerationOptions Default => new();
 
     /// <summary>
     /// Creates options optimized for creative text generation.
     /// </summary>
-    public static GeneratorOptions Creative => new()
+    public static GenerationOptions Creative => new()
     {
         Temperature = 0.9f,
         TopP = 0.95f,
@@ -97,7 +97,7 @@ public sealed class GeneratorOptions
     /// <summary>
     /// Creates options optimized for deterministic/precise outputs.
     /// </summary>
-    public static GeneratorOptions Precise => new()
+    public static GenerationOptions Precise => new()
     {
         Temperature = 0.1f,
         TopP = 0.5f,

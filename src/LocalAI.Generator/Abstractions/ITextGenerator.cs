@@ -21,7 +21,7 @@ public interface ITextGenerator : IAsyncDisposable
     /// <returns>An async enumerable of generated text tokens.</returns>
     IAsyncEnumerable<string> GenerateAsync(
         string prompt,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -33,7 +33,7 @@ public interface ITextGenerator : IAsyncDisposable
     /// <returns>An async enumerable of generated text tokens.</returns>
     IAsyncEnumerable<string> GenerateChatAsync(
         IEnumerable<ChatMessage> messages,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -45,7 +45,7 @@ public interface ITextGenerator : IAsyncDisposable
     /// <returns>The complete generated text.</returns>
     Task<string> GenerateCompleteAsync(
         string prompt,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -57,7 +57,7 @@ public interface ITextGenerator : IAsyncDisposable
     /// <returns>The complete generated text.</returns>
     Task<string> GenerateChatCompleteAsync(
         IEnumerable<ChatMessage> messages,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

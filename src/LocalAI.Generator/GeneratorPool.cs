@@ -58,7 +58,7 @@ public sealed class GeneratorPool : IAsyncDisposable
     /// <exception cref="InvalidOperationException">Thrown when memory is insufficient.</exception>
     public async Task<IGeneratorModel> GetOrLoadAsync(
         string modelId,
-        GeneratorModelOptions? options = null,
+        GeneratorOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -100,7 +100,7 @@ public sealed class GeneratorPool : IAsyncDisposable
             }
 
             // Load the model
-            var model = await _factory.CreateAsync(modelId, options, cancellationToken);
+            var model = await _factory.LoadAsync(modelId, options, cancellationToken);
 
             pooled = new PooledModel(modelId, model, memoryRequired);
             _models[modelId] = pooled;
@@ -184,7 +184,7 @@ public sealed class GeneratorPool : IAsyncDisposable
         }
     }
 
-    private long EstimateModelMemory(string modelId, GeneratorModelOptions? options)
+    private long EstimateModelMemory(string modelId, GeneratorOptions? options)
     {
         var modelInfo = ModelRegistry.GetModel(modelId);
         if (modelInfo != null)

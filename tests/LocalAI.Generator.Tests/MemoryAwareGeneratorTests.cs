@@ -91,7 +91,7 @@ public class MemoryAwareGeneratorTests
     {
         // Arrange
         var inner = Substitute.For<IGeneratorModel>();
-        inner.GenerateCompleteAsync(Arg.Any<string>(), Arg.Any<GeneratorOptions>(), Arg.Any<CancellationToken>())
+        inner.GenerateCompleteAsync(Arg.Any<string>(), Arg.Any<GenerationOptions>(), Arg.Any<CancellationToken>())
             .Returns("test response");
 
         var options = MemoryAwareOptions.WithLimitGB(100);
@@ -102,7 +102,7 @@ public class MemoryAwareGeneratorTests
 
         // Assert
         result.Should().Be("test response");
-        await inner.Received(1).GenerateCompleteAsync("prompt", Arg.Any<GeneratorOptions>(), Arg.Any<CancellationToken>());
+        await inner.Received(1).GenerateCompleteAsync("prompt", Arg.Any<GenerationOptions>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

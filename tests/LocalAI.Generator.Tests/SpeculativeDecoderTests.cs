@@ -123,17 +123,17 @@ public class SpeculativeDecoderTests
         var targetModel = Substitute.For<IGeneratorModel>();
 
         // Setup draft model to generate tokens
-        draftModel.GenerateAsync(Arg.Any<string>(), Arg.Any<GeneratorOptions>(), Arg.Any<CancellationToken>())
+        draftModel.GenerateAsync(Arg.Any<string>(), Arg.Any<GenerationOptions>(), Arg.Any<CancellationToken>())
             .Returns(CreateAsyncEnumerable("Hello", " world", "!"));
 
         // Setup target model to verify tokens (same tokens = accepted)
-        targetModel.GenerateAsync(Arg.Any<string>(), Arg.Any<GeneratorOptions>(), Arg.Any<CancellationToken>())
+        targetModel.GenerateAsync(Arg.Any<string>(), Arg.Any<GenerationOptions>(), Arg.Any<CancellationToken>())
             .Returns(CreateAsyncEnumerable("Hello", " world", "!"));
 
         using var decoder = new SpeculativeDecoder(draftModel, targetModel);
 
         // Act
-        var result = await decoder.GenerateCompleteAsync("Test", new GeneratorOptions { MaxTokens = 3 });
+        var result = await decoder.GenerateCompleteAsync("Test", new GenerationOptions { MaxTokens = 3 });
 
         // Assert
         result.Should().NotBeNull();

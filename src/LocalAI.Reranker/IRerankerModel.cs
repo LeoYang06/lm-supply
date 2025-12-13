@@ -5,7 +5,7 @@ namespace LocalAI.Reranker;
 /// <summary>
 /// Interface for semantic document reranking.
 /// </summary>
-public interface IReranker : IDisposable, IAsyncDisposable
+public interface IRerankerModel : IDisposable, IAsyncDisposable
 {
     /// <summary>
     /// Reranks documents by relevance to a query.

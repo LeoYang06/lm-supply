@@ -69,14 +69,14 @@ public class OnnxGeneratorModelFactoryTests
     }
 
     [Fact]
-    public async Task CreateAsync_NonExistentModel_ThrowsHttpException()
+    public async Task LoadAsync_NonExistentModel_ThrowsHttpException()
     {
         // Arrange
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         using var factory = new OnnxGeneratorModelFactory(tempDir, ExecutionProvider.Auto);
 
         // Act & Assert - attempts download which fails with HTTP error
-        var action = () => factory.CreateAsync("nonexistent/model");
+        var action = () => factory.LoadAsync("nonexistent/model");
         await action.Should().ThrowAsync<HttpRequestException>();
     }
 

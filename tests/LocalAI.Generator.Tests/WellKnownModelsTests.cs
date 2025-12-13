@@ -5,10 +5,10 @@ namespace LocalAI.Generator.Tests;
 public class WellKnownModelsTests
 {
     [Fact]
-    public void Generator_Default_IsPhi35Mini()
+    public void Generator_Default_IsPhi4Mini()
     {
         // Assert
-        WellKnownModels.Generator.Default.Should().Be("microsoft/Phi-3.5-mini-instruct-onnx");
+        WellKnownModels.Generator.Default.Should().Be("microsoft/Phi-4-mini-instruct-onnx");
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class WellKnownModelsTests
     }
 
     [Fact]
-    public void GetLicenseTier_Phi35_ReturnsMIT()
+    public void GetLicenseTier_DefaultModel_ReturnsMIT()
     {
         // Act
         var tier = WellKnownModels.GetLicenseTier(WellKnownModels.Generator.Default);

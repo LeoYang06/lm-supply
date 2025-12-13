@@ -8,6 +8,19 @@ public static class ModelRegistry
     private static readonly Dictionary<string, ModelInfo> _models = new(StringComparer.OrdinalIgnoreCase)
     {
         // Tier 1: MIT License - No restrictions
+        ["microsoft/Phi-4-mini-instruct-onnx"] = new ModelInfo
+        {
+            ModelId = "microsoft/Phi-4-mini-instruct-onnx",
+            DisplayName = "Phi-4 Mini",
+            ParameterCount = 3_800_000_000,
+            License = LicenseTier.MIT,
+            LicenseName = "MIT",
+            ChatFormat = "phi3",
+            DefaultQuantization = Quantization.INT4,
+            RecommendedContextLength = 16384,
+            NumLayers = 32,
+            HiddenSize = 3072
+        },
         ["microsoft/Phi-3.5-mini-instruct-onnx"] = new ModelInfo
         {
             ModelId = "microsoft/Phi-3.5-mini-instruct-onnx",

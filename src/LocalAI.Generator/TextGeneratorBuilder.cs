@@ -10,8 +10,8 @@ public sealed class TextGeneratorBuilder
 {
     private string? _modelPath;
     private string? _modelId;
-    private GeneratorModelOptions _modelOptions = new();
-    private Models.GeneratorOptions? _defaultGeneratorOptions;
+    private GeneratorOptions _modelOptions = new();
+    private Models.GenerationOptions? _defaultGenerationOptions;
     private GeneratorPoolOptions? _poolOptions;
     private MemoryAwareOptions? _memoryOptions;
 
@@ -132,10 +132,10 @@ public sealed class TextGeneratorBuilder
     /// <summary>
     /// Sets default generation options.
     /// </summary>
-    /// <param name="options">Default generator options.</param>
-    public TextGeneratorBuilder WithDefaultOptions(Models.GeneratorOptions options)
+    /// <param name="options">Default generation options.</param>
+    public TextGeneratorBuilder WithDefaultOptions(Models.GenerationOptions options)
     {
-        _defaultGeneratorOptions = options;
+        _defaultGenerationOptions = options;
         return this;
     }
 
@@ -144,7 +144,7 @@ public sealed class TextGeneratorBuilder
     /// </summary>
     public TextGeneratorBuilder ForCreativeGeneration()
     {
-        _defaultGeneratorOptions = Models.GeneratorOptions.Creative;
+        _defaultGenerationOptions = Models.GenerationOptions.Creative;
         return this;
     }
 
@@ -153,7 +153,7 @@ public sealed class TextGeneratorBuilder
     /// </summary>
     public TextGeneratorBuilder ForPreciseGeneration()
     {
-        _defaultGeneratorOptions = Models.GeneratorOptions.Precise;
+        _defaultGenerationOptions = Models.GenerationOptions.Precise;
         return this;
     }
 

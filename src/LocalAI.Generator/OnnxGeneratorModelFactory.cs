@@ -49,12 +49,12 @@ public sealed class OnnxGeneratorModelFactory : IGeneratorModelFactory, IDisposa
     }
 
     /// <inheritdoc />
-    public async Task<IGeneratorModel> CreateAsync(
+    public async Task<IGeneratorModel> LoadAsync(
         string modelId,
-        GeneratorModelOptions? options = null,
+        GeneratorOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        options ??= new GeneratorModelOptions();
+        options ??= new GeneratorOptions();
 
         var modelPath = await ResolveModelPathAsync(modelId, cancellationToken);
         var chatFormatter = ResolveChatFormatter(modelId, options.ChatFormat);
@@ -62,7 +62,7 @@ public sealed class OnnxGeneratorModelFactory : IGeneratorModelFactory, IDisposa
         // Merge default provider if not specified
         if (options.Provider == ExecutionProvider.Auto && _defaultProvider != ExecutionProvider.Auto)
         {
-            options = new GeneratorModelOptions
+            options = new GeneratorOptions
             {
                 CacheDirectory = options.CacheDirectory ?? _cacheDirectory,
                 Provider = _defaultProvider,

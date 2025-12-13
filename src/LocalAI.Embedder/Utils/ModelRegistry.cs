@@ -2,11 +2,65 @@ namespace LocalAI.Embedder.Utils;
 
 /// <summary>
 /// Registry of pre-configured embedding models.
+/// Updated: 2025-01 based on MTEB leaderboard rankings.
 /// </summary>
 internal static class ModelRegistry
 {
     private static readonly Dictionary<string, ModelInfo> _models = new(StringComparer.OrdinalIgnoreCase)
     {
+        // ===== Aliases (user-friendly names) =====
+        ["default"] = new ModelInfo
+        {
+            RepoId = "BAAI/bge-small-en-v1.5",
+            Dimensions = 384,
+            MaxSequenceLength = 512,
+            PoolingMode = PoolingMode.Cls,
+            DoLowerCase = true,
+            Description = "Default: BGE Small English v1.5, 33M params, MTEB top performer",
+            Subfolder = "onnx"
+        },
+        ["fast"] = new ModelInfo
+        {
+            RepoId = "sentence-transformers/all-MiniLM-L6-v2",
+            Dimensions = 384,
+            MaxSequenceLength = 256,
+            PoolingMode = PoolingMode.Mean,
+            DoLowerCase = true,
+            Description = "Fast: all-MiniLM-L6-v2, 22M params, ultra-lightweight",
+            Subfolder = "onnx"
+        },
+        ["quality"] = new ModelInfo
+        {
+            RepoId = "BAAI/bge-base-en-v1.5",
+            Dimensions = 768,
+            MaxSequenceLength = 512,
+            PoolingMode = PoolingMode.Cls,
+            DoLowerCase = true,
+            Description = "Quality: BGE Base English v1.5, 110M params, higher accuracy",
+            Subfolder = "onnx"
+        },
+        ["large"] = new ModelInfo
+        {
+            RepoId = "nomic-ai/nomic-embed-text-v1.5",
+            Dimensions = 768,
+            MaxSequenceLength = 8192,
+            PoolingMode = PoolingMode.Mean,
+            DoLowerCase = false,
+            Description = "Large: Nomic Embed v1.5, 137M params, 8K context, 2024 MTEB top",
+            Subfolder = "onnx"
+        },
+        ["multilingual"] = new ModelInfo
+        {
+            RepoId = "intfloat/multilingual-e5-base",
+            Dimensions = 768,
+            MaxSequenceLength = 512,
+            PoolingMode = PoolingMode.Mean,
+            DoLowerCase = false,
+            Description = "Multilingual: E5 Base, 278M params, 100+ languages",
+            Subfolder = "onnx"
+        },
+
+        // ===== Explicit model names =====
         ["all-MiniLM-L6-v2"] = new ModelInfo
         {
             RepoId = "sentence-transformers/all-MiniLM-L6-v2",
@@ -14,7 +68,7 @@ internal static class ModelRegistry
             MaxSequenceLength = 256,
             PoolingMode = PoolingMode.Mean,
             DoLowerCase = true,
-            Description = "Fast, good quality, English",
+            Description = "22M params, ultra-fast, English",
             Subfolder = "onnx"
         },
         ["all-mpnet-base-v2"] = new ModelInfo
@@ -24,7 +78,7 @@ internal static class ModelRegistry
             MaxSequenceLength = 384,
             PoolingMode = PoolingMode.Mean,
             DoLowerCase = true,
-            Description = "Higher quality, English",
+            Description = "110M params, legacy quality model, English",
             Subfolder = "onnx"
         },
         ["bge-small-en-v1.5"] = new ModelInfo
@@ -34,7 +88,7 @@ internal static class ModelRegistry
             MaxSequenceLength = 512,
             PoolingMode = PoolingMode.Cls,
             DoLowerCase = true,
-            Description = "BAAI, English",
+            Description = "33M params, MTEB top performer for size, English",
             Subfolder = "onnx"
         },
         ["bge-base-en-v1.5"] = new ModelInfo
@@ -44,7 +98,47 @@ internal static class ModelRegistry
             MaxSequenceLength = 512,
             PoolingMode = PoolingMode.Cls,
             DoLowerCase = true,
-            Description = "BAAI, English, higher quality",
+            Description = "110M params, excellent quality, English",
+            Subfolder = "onnx"
+        },
+        ["bge-large-en-v1.5"] = new ModelInfo
+        {
+            RepoId = "BAAI/bge-large-en-v1.5",
+            Dimensions = 1024,
+            MaxSequenceLength = 512,
+            PoolingMode = PoolingMode.Cls,
+            DoLowerCase = true,
+            Description = "335M params, highest accuracy BGE, English",
+            Subfolder = "onnx"
+        },
+        ["nomic-embed-text-v1.5"] = new ModelInfo
+        {
+            RepoId = "nomic-ai/nomic-embed-text-v1.5",
+            Dimensions = 768,
+            MaxSequenceLength = 8192,
+            PoolingMode = PoolingMode.Mean,
+            DoLowerCase = false,
+            Description = "137M params, 8K context, 2024 MTEB top performer",
+            Subfolder = "onnx"
+        },
+        ["e5-small-v2"] = new ModelInfo
+        {
+            RepoId = "intfloat/e5-small-v2",
+            Dimensions = 384,
+            MaxSequenceLength = 512,
+            PoolingMode = PoolingMode.Mean,
+            DoLowerCase = false,
+            Description = "33M params, no prefix needed, English",
+            Subfolder = "onnx"
+        },
+        ["e5-base-v2"] = new ModelInfo
+        {
+            RepoId = "intfloat/e5-base-v2",
+            Dimensions = 768,
+            MaxSequenceLength = 512,
+            PoolingMode = PoolingMode.Mean,
+            DoLowerCase = false,
+            Description = "110M params, excellent retrieval, English",
             Subfolder = "onnx"
         },
         ["multilingual-e5-small"] = new ModelInfo
@@ -54,7 +148,7 @@ internal static class ModelRegistry
             MaxSequenceLength = 512,
             PoolingMode = PoolingMode.Mean,
             DoLowerCase = false,
-            Description = "Multilingual",
+            Description = "118M params, 100+ languages, compact",
             Subfolder = "onnx"
         },
         ["multilingual-e5-base"] = new ModelInfo
@@ -64,7 +158,17 @@ internal static class ModelRegistry
             MaxSequenceLength = 512,
             PoolingMode = PoolingMode.Mean,
             DoLowerCase = false,
-            Description = "Multilingual, higher quality",
+            Description = "278M params, 100+ languages, quality",
+            Subfolder = "onnx"
+        },
+        ["multilingual-e5-large"] = new ModelInfo
+        {
+            RepoId = "intfloat/multilingual-e5-large",
+            Dimensions = 1024,
+            MaxSequenceLength = 512,
+            PoolingMode = PoolingMode.Mean,
+            DoLowerCase = false,
+            Description = "560M params, 100+ languages, highest quality",
             Subfolder = "onnx"
         }
     };

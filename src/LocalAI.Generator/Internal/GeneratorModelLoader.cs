@@ -22,7 +22,7 @@ internal static class GeneratorModelLoader
 
     public static async Task<IGeneratorModel> LoadAsync(
         string modelId,
-        GeneratorModelOptions options,
+        GeneratorOptions options,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -43,7 +43,7 @@ internal static class GeneratorModelLoader
 
     public static Task<IGeneratorModel> LoadFromPathAsync(
         string modelPath,
-        GeneratorModelOptions options,
+        GeneratorOptions options,
         string? modelId = null)
     {
         modelId ??= Path.GetFileName(modelPath);

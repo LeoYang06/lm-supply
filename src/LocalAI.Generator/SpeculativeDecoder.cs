@@ -50,7 +50,7 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
     /// <inheritdoc />
     public async IAsyncEnumerable<SpeculativeToken> GenerateAsync(
         string prompt,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -155,7 +155,7 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
     /// <inheritdoc />
     public async Task<SpeculativeResult> GenerateCompleteAsync(
         string prompt,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -173,14 +173,14 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
     /// <inheritdoc />
     public SpeculativeStats GetLastStats() => _lastStats;
 
-    private GeneratorOptions CreateDraftOptions(GeneratorOptions? baseOptions)
+    private GenerationOptions CreateDraftOptions(GenerationOptions? baseOptions)
     {
-        var opts = baseOptions ?? new GeneratorOptions();
+        var opts = baseOptions ?? new GenerationOptions();
 
         // Use lower temperature for draft model for more predictable tokens
         var draftTemp = _options.DraftTemperature ?? Math.Max(0.1f, opts.Temperature - 0.2f);
 
-        return new GeneratorOptions
+        return new GenerationOptions
         {
             MaxTokens = opts.MaxTokens,
             Temperature = draftTemp,
@@ -196,9 +196,9 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
         };
     }
 
-    private static GeneratorOptions CloneWithMaxTokens(GeneratorOptions source, int maxTokens)
+    private static GenerationOptions CloneWithMaxTokens(GenerationOptions source, int maxTokens)
     {
-        return new GeneratorOptions
+        return new GenerationOptions
         {
             MaxTokens = maxTokens,
             Temperature = source.Temperature,
@@ -217,7 +217,7 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
     private async Task<(List<string> verified, bool rejected)> VerifyTokensAsync(
         string context,
         List<string> candidates,
-        GeneratorOptions? options,
+        GenerationOptions? options,
         CancellationToken cancellationToken)
     {
         // Simplified verification: generate from target and compare
@@ -227,7 +227,7 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
 
         // Generate same number of tokens from target model
         var targetTokens = new List<string>();
-        var verifyOptions = CloneWithMaxTokens(options ?? new GeneratorOptions(), candidates.Count);
+        var verifyOptions = CloneWithMaxTokens(options ?? new GenerationOptions(), candidates.Count);
         await foreach (var token in _targetModel.GenerateAsync(
             context,
             verifyOptions,
@@ -258,10 +258,10 @@ public sealed class SpeculativeDecoder : ISpeculativeDecoder, IDisposable
 
     private async Task<string?> GenerateTargetTokenAsync(
         string context,
-        GeneratorOptions? options,
+        GenerationOptions? options,
         CancellationToken cancellationToken)
     {
-        var singleTokenOptions = CloneWithMaxTokens(options ?? new GeneratorOptions(), 1);
+        var singleTokenOptions = CloneWithMaxTokens(options ?? new GenerationOptions(), 1);
         await foreach (var token in _targetModel.GenerateAsync(
             context,
             singleTokenOptions,

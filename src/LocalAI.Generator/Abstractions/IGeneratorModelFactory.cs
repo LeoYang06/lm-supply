@@ -1,20 +1,20 @@
 namespace LocalAI.Generator.Abstractions;
 
 /// <summary>
-/// Factory for creating generator model instances.
+/// Factory for loading generator model instances.
 /// </summary>
 public interface IGeneratorModelFactory
 {
     /// <summary>
-    /// Creates a generator model asynchronously.
+    /// Loads a generator model asynchronously.
     /// </summary>
     /// <param name="modelId">The model identifier (e.g., "microsoft/Phi-3.5-mini-instruct-onnx").</param>
     /// <param name="options">Optional model configuration.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The created generator model.</returns>
-    Task<IGeneratorModel> CreateAsync(
+    /// <returns>The loaded generator model.</returns>
+    Task<IGeneratorModel> LoadAsync(
         string modelId,
-        GeneratorModelOptions? options = null,
+        GeneratorOptions? options = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

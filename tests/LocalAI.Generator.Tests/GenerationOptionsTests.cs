@@ -3,13 +3,13 @@ using LocalAI.Generator.Models;
 
 namespace LocalAI.Generator.Tests;
 
-public class GeneratorOptionsTests
+public class GenerationOptionsTests
 {
     [Fact]
     public void Default_ReturnsExpectedValues()
     {
         // Act
-        var options = GeneratorOptions.Default;
+        var options = GenerationOptions.Default;
 
         // Assert
         options.MaxTokens.Should().Be(512);
@@ -23,7 +23,7 @@ public class GeneratorOptionsTests
     public void Creative_HasHigherTemperature()
     {
         // Act
-        var options = GeneratorOptions.Creative;
+        var options = GenerationOptions.Creative;
 
         // Assert
         options.Temperature.Should().Be(0.9f);
@@ -35,7 +35,7 @@ public class GeneratorOptionsTests
     public void Precise_HasLowerTemperature()
     {
         // Act
-        var options = GeneratorOptions.Precise;
+        var options = GenerationOptions.Precise;
 
         // Assert
         options.Temperature.Should().Be(0.1f);
@@ -47,7 +47,7 @@ public class GeneratorOptionsTests
     public void Default_HasExpectedSamplingOptions()
     {
         // Act
-        var options = GeneratorOptions.Default;
+        var options = GenerationOptions.Default;
 
         // Assert - New options from research-05
         options.DoSample.Should().BeTrue();
@@ -60,7 +60,7 @@ public class GeneratorOptionsTests
     public void BeamSearch_Configuration()
     {
         // Arrange
-        var options = new GeneratorOptions
+        var options = new GenerationOptions
         {
             NumBeams = 4,
             DoSample = false
@@ -75,7 +75,7 @@ public class GeneratorOptionsTests
     public void MaxNewTokens_CanBeLimited()
     {
         // Arrange
-        var options = new GeneratorOptions
+        var options = new GenerationOptions
         {
             MaxTokens = 2048,
             MaxNewTokens = 100

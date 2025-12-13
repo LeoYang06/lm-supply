@@ -20,7 +20,7 @@ namespace LocalAI.Reranker;
 /// </code>
 /// </example>
 /// </remarks>
-public sealed class Reranker : IReranker
+public sealed class Reranker : IRerankerModel
 {
     private readonly RerankerOptions _options;
     private readonly ModelRegistry _registry;

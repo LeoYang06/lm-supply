@@ -3,7 +3,7 @@ namespace LocalAI.Generator;
 /// <summary>
 /// Configuration options for loading a generator model.
 /// </summary>
-public sealed class GeneratorModelOptions
+public sealed class GeneratorOptions
 {
     /// <summary>
     /// Gets or sets the directory for caching downloaded models.

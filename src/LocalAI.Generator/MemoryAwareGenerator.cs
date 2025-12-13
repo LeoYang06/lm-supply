@@ -85,7 +85,7 @@ public sealed class MemoryAwareGenerator : IGeneratorModel
     /// <inheritdoc />
     public async IAsyncEnumerable<string> GenerateAsync(
         string prompt,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -107,7 +107,7 @@ public sealed class MemoryAwareGenerator : IGeneratorModel
     /// <inheritdoc />
     public async IAsyncEnumerable<string> GenerateChatAsync(
         IEnumerable<ChatMessage> messages,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -129,7 +129,7 @@ public sealed class MemoryAwareGenerator : IGeneratorModel
     /// <inheritdoc />
     public async Task<string> GenerateCompleteAsync(
         string prompt,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -143,7 +143,7 @@ public sealed class MemoryAwareGenerator : IGeneratorModel
     /// <inheritdoc />
     public async Task<string> GenerateChatCompleteAsync(
         IEnumerable<ChatMessage> messages,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();

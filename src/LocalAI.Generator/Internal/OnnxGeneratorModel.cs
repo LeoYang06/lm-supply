@@ -14,7 +14,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
     private readonly Model _model;
     private readonly Tokenizer _tokenizer;
     private readonly IChatFormatter _chatFormatter;
-    private readonly GeneratorModelOptions _options;
+    private readonly GeneratorOptions _options;
     private readonly string _modelPath;
     private readonly ExecutionProvider _resolvedProvider;
     private readonly SemaphoreSlim _concurrencyLimiter;
@@ -24,7 +24,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         string modelId,
         string modelPath,
         IChatFormatter chatFormatter,
-        GeneratorModelOptions options)
+        GeneratorOptions options)
     {
         ModelId = modelId;
         _modelPath = modelPath;
@@ -60,11 +60,11 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
     /// <inheritdoc />
     public async IAsyncEnumerable<string> GenerateAsync(
         string prompt,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        options ??= GeneratorOptions.Default;
+        options ??= GenerationOptions.Default;
 
         // Acquire concurrency slot
         await _concurrencyLimiter.WaitAsync(cancellationToken);
@@ -118,13 +118,13 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
     /// <inheritdoc />
     public IAsyncEnumerable<string> GenerateChatAsync(
         IEnumerable<ChatMessage> messages,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         var prompt = _chatFormatter.FormatPrompt(messages);
 
         // Merge stop sequences from formatter
-        options ??= GeneratorOptions.Default;
+        options ??= GenerationOptions.Default;
         var mergedOptions = MergeStopSequences(options);
 
         return GenerateAsync(prompt, mergedOptions, cancellationToken);
@@ -133,7 +133,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
     /// <inheritdoc />
     public async Task<string> GenerateCompleteAsync(
         string prompt,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         var sb = new StringBuilder();
@@ -149,7 +149,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
     /// <inheritdoc />
     public async Task<string> GenerateChatCompleteAsync(
         IEnumerable<ChatMessage> messages,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         var sb = new StringBuilder();
@@ -168,7 +168,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         // Perform a minimal generation to warm up the model
         return GenerateCompleteAsync(
             "Hello",
-            new GeneratorOptions { MaxTokens = 1 },
+            new GenerationOptions { MaxTokens = 1 },
             cancellationToken);
     }
 
@@ -180,7 +180,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         _chatFormatter.FormatName,
         _resolvedProvider.ToString());
 
-    private GeneratorParams CreateGeneratorParams(GeneratorOptions options)
+    private GeneratorParams CreateGeneratorParams(GenerationOptions options)
     {
         var generatorParams = new GeneratorParams(_model);
 
@@ -206,7 +206,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         return generatorParams;
     }
 
-    private GeneratorOptions MergeStopSequences(GeneratorOptions options)
+    private GenerationOptions MergeStopSequences(GenerationOptions options)
     {
         var formatterStops = _chatFormatter.GetStopSequences();
         var userStops = options.StopSequences ?? [];
@@ -214,7 +214,7 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         var merged = new List<string>(formatterStops);
         merged.AddRange(userStops);
 
-        return new GeneratorOptions
+        return new GenerationOptions
         {
             MaxTokens = options.MaxTokens,
             Temperature = options.Temperature,

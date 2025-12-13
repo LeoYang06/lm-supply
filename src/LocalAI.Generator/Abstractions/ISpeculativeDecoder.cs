@@ -43,7 +43,7 @@ public interface ISpeculativeDecoder : IAsyncDisposable
     /// <returns>Asynchronous stream of generated tokens.</returns>
     IAsyncEnumerable<SpeculativeToken> GenerateAsync(
         string prompt,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -55,7 +55,7 @@ public interface ISpeculativeDecoder : IAsyncDisposable
     /// <returns>The complete generated text and statistics.</returns>
     Task<SpeculativeResult> GenerateCompleteAsync(
         string prompt,
-        GeneratorOptions? options = null,
+        GenerationOptions? options = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -59,8 +59,8 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 | [LocalAI.Generator](docs/generator.md) | Text generation & chat | [![NuGet](https://img.shields.io/nuget/v/LocalAI.Generator.svg)](https://www.nuget.org/packages/LocalAI.Generator) |
 | LocalAI.Ocr | Document OCR | 📋 Planned |
 | LocalAI.Captioner | Image → Text | 📋 Planned |
-| LocalAI.Translator | Neural machine translation | 📋 Planned |
 | LocalAI.Detector | Object detection | 📋 Planned |
+| LocalAI.Translator | Neural machine translation | 📋 Planned |
 | LocalAI.Segmenter | Image segmentation | 📋 Planned |
 | LocalAI.Transcriber | Speech → Text (Whisper) | 📋 Planned |
 | LocalAI.Synthesizer | Text → Speech | 📋 Planned |
@@ -148,31 +148,37 @@ await foreach (var token in generator.GenerateAsync("Write a story:"))
 
 ## Available Models
 
+*Updated: 2025-01 based on MTEB leaderboard and community benchmarks*
+
 ### Embedder
 
-| Alias | Model | Dimensions | Size |
-|-------|-------|------------|------|
-| `default` | all-MiniLM-L6-v2 | 384 | ~90MB |
-| `large` | all-mpnet-base-v2 | 768 | ~420MB |
-| `multilingual` | paraphrase-multilingual-MiniLM-L12-v2 | 384 | ~470MB |
+| Alias | Model | Dims | Params | Context | Best For |
+|-------|-------|------|--------|---------|----------|
+| `default` | bge-small-en-v1.5 | 384 | 33M | 512 | Balanced speed/quality |
+| `fast` | all-MiniLM-L6-v2 | 384 | 22M | 256 | Ultra-low latency |
+| `quality` | bge-base-en-v1.5 | 768 | 110M | 512 | Higher accuracy |
+| `large` | nomic-embed-text-v1.5 | 768 | 137M | 8192 | Long context RAG |
+| `multilingual` | multilingual-e5-base | 768 | 278M | 512 | 100+ languages |
 
 ### Reranker
 
-| Alias | Model | Max Tokens | Size |
-|-------|-------|------------|------|
-| `default` | ms-marco-MiniLM-L-6-v2 | 512 | ~90MB |
-| `quality` | ms-marco-MiniLM-L-12-v2 | 512 | ~134MB |
-| `fast` | ms-marco-TinyBERT-L-2-v2 | 512 | ~18MB |
-| `multilingual` | bge-reranker-v2-m3 | 8192 | ~1.1GB |
+| Alias | Model | Params | Context | Best For |
+|-------|-------|--------|---------|----------|
+| `default` | ms-marco-MiniLM-L-6-v2 | 22M | 512 | Balanced speed/quality |
+| `fast` | ms-marco-TinyBERT-L-2-v2 | 4.4M | 512 | Ultra-low latency |
+| `quality` | bge-reranker-base | 278M | 512 | Higher accuracy |
+| `large` | bge-reranker-large | 560M | 512 | Best accuracy |
+| `multilingual` | bge-reranker-v2-m3 | 568M | 8192 | Long docs, 100+ languages |
 
 ### Generator
 
-| Alias | Model | Parameters | License |
-|-------|-------|------------|---------|
-| `default` | Phi-3.5-mini-instruct | 3.8B | MIT |
-| `fast` | Llama-3.2-1B-Instruct | 1B | Llama 3.2 |
-| `quality` | phi-4 | 14B | MIT |
-| `small` | Llama-3.2-1B-Instruct | 1B | Llama 3.2 |
+| Alias | Model | Params | Context | License | Best For |
+|-------|-------|--------|---------|---------|----------|
+| `default` | Phi-4-mini-instruct | 3.8B | 16K | MIT | Balanced reasoning |
+| `fast` | Llama-3.2-1B-Instruct | 1B | 8K | Llama 3.2 | Ultra-fast inference |
+| `quality` | phi-4 | 14B | 16K | MIT | Best reasoning |
+| `medium` | Phi-3.5-mini-instruct | 3.8B | 128K | MIT | Long context |
+| `multilingual` | gemma-2-2b-it | 2B | 8K | Gemma ToU | Multi-language |
 
 ---
 
