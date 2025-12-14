@@ -3,7 +3,7 @@ namespace LocalAI.Ocr;
 /// <summary>
 /// Configuration options for the OCR engine.
 /// </summary>
-public sealed class OcrOptions
+public sealed class OcrOptions : LocalAIOptionsBase
 {
     /// <summary>
     /// Language hint for recognition model selection.
@@ -56,16 +56,4 @@ public sealed class OcrOptions
     /// Default is true.
     /// </summary>
     public bool UsePolygon { get; set; } = true;
-
-    /// <summary>
-    /// Execution provider for ONNX Runtime.
-    /// Default is Auto (automatically selects best available).
-    /// </summary>
-    public ExecutionProvider Provider { get; set; } = ExecutionProvider.Auto;
-
-    /// <summary>
-    /// Custom cache directory for models.
-    /// If null, uses the default HuggingFace cache directory.
-    /// </summary>
-    public string? CacheDirectory { get; set; }
 }

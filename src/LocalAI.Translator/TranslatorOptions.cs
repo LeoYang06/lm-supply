@@ -3,7 +3,7 @@ namespace LocalAI.Translator;
 /// <summary>
 /// Configuration options for the translator.
 /// </summary>
-public sealed class TranslatorOptions
+public sealed class TranslatorOptions : LocalAIOptionsBase
 {
     /// <summary>
     /// Gets or sets the model identifier.
@@ -16,18 +16,6 @@ public sealed class TranslatorOptions
     /// <para>Default: "default" (Korean to English)</para>
     /// </summary>
     public string ModelId { get; set; } = "default";
-
-    /// <summary>
-    /// Gets or sets the custom cache directory for model files.
-    /// <para>Default: null (uses HuggingFace standard cache location)</para>
-    /// </summary>
-    public string? CacheDirectory { get; set; }
-
-    /// <summary>
-    /// Gets or sets the execution provider for inference.
-    /// <para>Default: Auto (automatically selects the best available provider)</para>
-    /// </summary>
-    public ExecutionProvider Provider { get; set; } = ExecutionProvider.Auto;
 
     /// <summary>
     /// Gets or sets whether to disable automatic model download.

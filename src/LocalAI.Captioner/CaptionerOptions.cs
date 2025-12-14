@@ -3,7 +3,7 @@ namespace LocalAI.Captioner;
 /// <summary>
 /// Configuration options for the image captioner.
 /// </summary>
-public sealed class CaptionerOptions
+public sealed class CaptionerOptions : LocalAIOptionsBase
 {
     /// <summary>
     /// Maximum number of tokens to generate in the caption.
@@ -27,16 +27,4 @@ public sealed class CaptionerOptions
     /// Optional text prompt to start caption generation.
     /// </summary>
     public string? Prompt { get; set; }
-
-    /// <summary>
-    /// Execution provider for ONNX Runtime.
-    /// Default is Auto (automatically selects best available).
-    /// </summary>
-    public ExecutionProvider Provider { get; set; } = ExecutionProvider.Auto;
-
-    /// <summary>
-    /// Custom cache directory for models.
-    /// If null, uses the default HuggingFace cache directory.
-    /// </summary>
-    public string? CacheDirectory { get; set; }
 }

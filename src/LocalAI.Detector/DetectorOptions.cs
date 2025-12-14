@@ -3,7 +3,7 @@ namespace LocalAI.Detector;
 /// <summary>
 /// Configuration options for the object detector.
 /// </summary>
-public sealed class DetectorOptions
+public sealed class DetectorOptions : LocalAIOptionsBase
 {
     /// <summary>
     /// Gets or sets the model identifier.
@@ -36,18 +36,6 @@ public sealed class DetectorOptions
     /// <para>Default: 100</para>
     /// </summary>
     public int MaxDetections { get; set; } = 100;
-
-    /// <summary>
-    /// Gets or sets the custom cache directory for model files.
-    /// <para>Default: null (uses HuggingFace standard cache location)</para>
-    /// </summary>
-    public string? CacheDirectory { get; set; }
-
-    /// <summary>
-    /// Gets or sets the execution provider for inference.
-    /// <para>Default: Auto (automatically selects the best available provider)</para>
-    /// </summary>
-    public ExecutionProvider Provider { get; set; } = ExecutionProvider.Auto;
 
     /// <summary>
     /// Gets or sets whether to disable automatic model download.

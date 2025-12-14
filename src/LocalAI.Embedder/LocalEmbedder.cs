@@ -11,6 +11,27 @@ namespace LocalAI.Embedder;
 public static class LocalEmbedder
 {
     /// <summary>
+    /// Default model to use when no model is specified.
+    /// BGE Small English v1.5, 33M params, MTEB top performer.
+    /// </summary>
+    public const string DefaultModel = "default";
+
+    /// <summary>
+    /// Loads the default embedding model.
+    /// </summary>
+    /// <param name="options">Optional configuration options.</param>
+    /// <param name="progress">Optional progress reporting for downloads.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A loaded embedding model ready for inference.</returns>
+    public static Task<IEmbeddingModel> LoadDefaultAsync(
+        EmbedderOptions? options = null,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        return LoadAsync(DefaultModel, options, progress, cancellationToken);
+    }
+
+    /// <summary>
     /// Loads an embedding model by name or path.
     /// </summary>
     /// <param name="modelIdOrPath">

@@ -3,7 +3,7 @@ namespace LocalAI.Synthesizer;
 /// <summary>
 /// Options for configuring the synthesizer model.
 /// </summary>
-public sealed class SynthesizerOptions
+public sealed class SynthesizerOptions : LocalAIOptionsBase
 {
     /// <summary>
     /// Gets or sets the model identifier.
@@ -11,19 +11,6 @@ public sealed class SynthesizerOptions
     /// <para>Default: "default"</para>
     /// </summary>
     public string ModelId { get; set; } = "default";
-
-    /// <summary>
-    /// Gets or sets the execution provider for inference.
-    /// <para>Default: <see cref="ExecutionProvider.Auto"/></para>
-    /// </summary>
-    public ExecutionProvider Provider { get; set; } = ExecutionProvider.Auto;
-
-    /// <summary>
-    /// Gets or sets the cache directory for downloaded models.
-    /// If null, uses the default HuggingFace cache directory.
-    /// <para>Default: null</para>
-    /// </summary>
-    public string? CacheDirectory { get; set; }
 
     /// <summary>
     /// Gets or sets the number of threads for CPU inference.

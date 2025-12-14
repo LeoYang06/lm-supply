@@ -8,6 +8,27 @@ namespace LocalAI.Reranker;
 public static class LocalReranker
 {
     /// <summary>
+    /// Default model to use when no model is specified.
+    /// MS-MARCO MiniLM L-6 v2, 22M params, high quality cross-encoder.
+    /// </summary>
+    public const string DefaultModel = "default";
+
+    /// <summary>
+    /// Loads the default reranker model.
+    /// </summary>
+    /// <param name="options">Optional configuration options.</param>
+    /// <param name="progress">Optional progress reporting for downloads.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A loaded reranker ready for inference.</returns>
+    public static Task<IRerankerModel> LoadDefaultAsync(
+        RerankerOptions? options = null,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        return LoadAsync(DefaultModel, options, progress, cancellationToken);
+    }
+
+    /// <summary>
     /// Loads a reranker model by name or path.
     /// </summary>
     /// <param name="modelIdOrPath">

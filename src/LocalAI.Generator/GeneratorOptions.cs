@@ -3,20 +3,8 @@ namespace LocalAI.Generator;
 /// <summary>
 /// Configuration options for loading a generator model.
 /// </summary>
-public sealed class GeneratorOptions
+public sealed class GeneratorOptions : LocalAIOptionsBase
 {
-    /// <summary>
-    /// Gets or sets the directory for caching downloaded models.
-    /// Defaults to ~/.cache/huggingface/hub/ following HuggingFace Hub standards.
-    /// </summary>
-    public string? CacheDirectory { get; set; }
-
-    /// <summary>
-    /// Gets or sets the execution provider for inference.
-    /// Defaults to Auto (automatically selects the best available provider).
-    /// </summary>
-    public ExecutionProvider Provider { get; set; } = ExecutionProvider.Auto;
-
     /// <summary>
     /// Gets or sets the chat format to use.
     /// If null, the format is auto-detected from the model name.

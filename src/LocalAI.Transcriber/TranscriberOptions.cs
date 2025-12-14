@@ -3,7 +3,7 @@ namespace LocalAI.Transcriber;
 /// <summary>
 /// Configuration options for the transcriber model loading.
 /// </summary>
-public sealed class TranscriberOptions
+public sealed class TranscriberOptions : LocalAIOptionsBase
 {
     /// <summary>
     /// Gets or sets the model identifier.
@@ -16,18 +16,6 @@ public sealed class TranscriberOptions
     /// <para>Default: "default" (Whisper Base)</para>
     /// </summary>
     public string ModelId { get; set; } = "default";
-
-    /// <summary>
-    /// Gets or sets the custom cache directory for model files.
-    /// <para>Default: null (uses HuggingFace standard cache location)</para>
-    /// </summary>
-    public string? CacheDirectory { get; set; }
-
-    /// <summary>
-    /// Gets or sets the execution provider for inference.
-    /// <para>Default: Auto (automatically selects the best available provider)</para>
-    /// </summary>
-    public ExecutionProvider Provider { get; set; } = ExecutionProvider.Auto;
 
     /// <summary>
     /// Gets or sets whether to disable automatic model download.

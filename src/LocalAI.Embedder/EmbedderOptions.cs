@@ -3,14 +3,8 @@ namespace LocalAI.Embedder;
 /// <summary>
 /// Configuration options for the embedding model.
 /// </summary>
-public sealed class EmbedderOptions
+public sealed class EmbedderOptions : LocalAIOptionsBase
 {
-    /// <summary>
-    /// Gets or sets the directory for caching downloaded models.
-    /// Defaults to ~/.cache/huggingface/hub/ following HuggingFace Hub standards.
-    /// </summary>
-    public string? CacheDirectory { get; set; }
-
     /// <summary>
     /// Gets or sets the maximum sequence length for tokenization.
     /// Defaults to 512.
@@ -22,12 +16,6 @@ public sealed class EmbedderOptions
     /// Defaults to true.
     /// </summary>
     public bool NormalizeEmbeddings { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets the execution provider for inference.
-    /// Defaults to Auto (automatically selects the best available provider).
-    /// </summary>
-    public ExecutionProvider Provider { get; set; } = ExecutionProvider.Auto;
 
     /// <summary>
     /// Gets or sets the pooling mode for sentence embeddings.
