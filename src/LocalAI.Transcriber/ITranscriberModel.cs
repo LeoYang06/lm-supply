@@ -5,8 +5,13 @@ namespace LocalAI.Transcriber;
 /// <summary>
 /// Interface for speech-to-text transcription models.
 /// </summary>
-public interface ITranscriberModel : IDisposable, IAsyncDisposable
+public interface ITranscriberModel : IAsyncDisposable
 {
+    /// <summary>
+    /// Gets the model identifier.
+    /// </summary>
+    string ModelId { get; }
+
     /// <summary>
     /// Gets the detected or specified language code.
     /// </summary>

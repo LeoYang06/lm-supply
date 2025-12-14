@@ -5,8 +5,13 @@ namespace LocalAI.Detector;
 /// <summary>
 /// Interface for object detection models.
 /// </summary>
-public interface IDetectorModel : IDisposable, IAsyncDisposable
+public interface IDetectorModel : IAsyncDisposable
 {
+    /// <summary>
+    /// Gets the model identifier.
+    /// </summary>
+    string ModelId { get; }
+
     /// <summary>
     /// Detects objects in an image file.
     /// </summary>

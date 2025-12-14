@@ -21,7 +21,7 @@ public static class LocalCaptioner
     /// <param name="progress">Optional progress reporting for downloads.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A loaded captioning model ready for inference.</returns>
-    public static async Task<ICaptioner> LoadAsync(
+    public static async Task<ICaptionerModel> LoadAsync(
         string modelIdOrPath,
         CaptionerOptions? options = null,
         IProgress<DownloadProgress>? progress = null,
@@ -98,7 +98,7 @@ public static class LocalCaptioner
     /// </summary>
     public static IEnumerable<string> GetAvailableModels() => ModelRegistry.GetAvailableModels();
 
-    private static async Task<ICaptioner> CreateCaptionerAsync(
+    private static async Task<ICaptionerModel> CreateCaptionerAsync(
         string modelDir,
         ModelInfo modelInfo,
         CaptionerOptions options)

@@ -5,8 +5,13 @@ namespace LocalAI.Segmenter;
 /// <summary>
 /// Interface for image segmentation models.
 /// </summary>
-public interface ISegmenterModel : IDisposable, IAsyncDisposable
+public interface ISegmenterModel : IAsyncDisposable
 {
+    /// <summary>
+    /// Gets the model identifier.
+    /// </summary>
+    string ModelId { get; }
+
     /// <summary>
     /// Gets the class labels supported by this model.
     /// </summary>

@@ -5,7 +5,7 @@ namespace LocalAI.Captioner;
 /// <summary>
 /// Interface for image captioning models.
 /// </summary>
-public interface ICaptioner : IAsyncDisposable
+public interface ICaptionerModel : IAsyncDisposable
 {
     /// <summary>
     /// Gets the model identifier.

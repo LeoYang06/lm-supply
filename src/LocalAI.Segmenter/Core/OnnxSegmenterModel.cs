@@ -23,6 +23,9 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
     private bool _isInitialized;
     private bool _disposed;
 
+    /// <inheritdoc />
+    public string ModelId => _modelInfo.Id;
+
     /// <summary>
     /// Gets the class labels for this model.
     /// </summary>
@@ -342,16 +345,6 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
 
         options.EnableMemoryPattern = true;
         options.EnableCpuMemArena = true;
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-            return;
-
-        _session?.Dispose();
-        _sessionLock.Dispose();
-        _disposed = true;
     }
 
     public async ValueTask DisposeAsync()

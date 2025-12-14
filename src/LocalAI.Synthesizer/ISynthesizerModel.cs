@@ -5,8 +5,13 @@ namespace LocalAI.Synthesizer;
 /// <summary>
 /// Interface for text-to-speech synthesis models.
 /// </summary>
-public interface ISynthesizerModel : IDisposable, IAsyncDisposable
+public interface ISynthesizerModel : IAsyncDisposable
 {
+    /// <summary>
+    /// Gets the model identifier.
+    /// </summary>
+    string ModelId { get; }
+
     /// <summary>
     /// Gets the current voice being used.
     /// </summary>

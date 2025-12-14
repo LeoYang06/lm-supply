@@ -11,7 +11,7 @@ namespace LocalAI.Captioner.Inference;
 /// <summary>
 /// Image captioner implementation for ViT-GPT2 style encoder-decoder models.
 /// </summary>
-internal sealed class VitGpt2Captioner : ICaptioner
+internal sealed class VitGpt2Captioner : ICaptionerModel
 {
     private readonly InferenceSession _encoder;
     private readonly InferenceSession _decoder;

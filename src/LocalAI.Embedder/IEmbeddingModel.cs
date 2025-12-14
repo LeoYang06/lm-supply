@@ -5,7 +5,7 @@ namespace LocalAI.Embedder;
 /// <summary>
 /// Represents a loaded embedding model that can generate text embeddings.
 /// </summary>
-public interface IEmbeddingModel : IDisposable, IAsyncDisposable
+public interface IEmbeddingModel : IAsyncDisposable
 {
     /// <summary>
     /// Gets the model identifier.

@@ -23,6 +23,9 @@ internal sealed class OnnxDetectorModel : IDetectorModel
     private bool _isInitialized;
     private bool _disposed;
 
+    /// <inheritdoc />
+    public string ModelId => _modelInfo.Id;
+
     /// <summary>
     /// Gets the COCO class labels.
     /// </summary>
@@ -465,16 +468,6 @@ internal sealed class OnnxDetectorModel : IDetectorModel
 
         options.EnableMemoryPattern = true;
         options.EnableCpuMemArena = true;
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-            return;
-
-        _session?.Dispose();
-        _sessionLock.Dispose();
-        _disposed = true;
     }
 
     public async ValueTask DisposeAsync()

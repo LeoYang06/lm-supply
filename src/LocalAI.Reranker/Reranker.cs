@@ -29,6 +29,9 @@ public sealed class Reranker : IRerankerModel
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private bool _disposed;
 
+    /// <inheritdoc />
+    public string ModelId => _options.ModelId;
+
     /// <summary>
     /// Initializes a new Reranker with default settings.
     /// Uses the default model (ms-marco-MiniLM-L-6-v2) with automatic download.
@@ -217,22 +220,6 @@ public sealed class Reranker : IRerankerModel
         {
             throw new ArgumentException("Documents collection cannot be empty.", nameof(documents));
         }
-    }
-
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        if (_disposed) return;
-
-        if (_stateLazy.IsValueCreated && _stateLazy.Value.IsCompletedSuccessfully)
-        {
-            var state = _stateLazy.Value.Result;
-            state.Tokenizer.Dispose();
-            state.Inference.Dispose();
-        }
-
-        _initLock.Dispose();
-        _disposed = true;
     }
 
     /// <inheritdoc />

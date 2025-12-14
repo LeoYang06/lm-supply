@@ -21,6 +21,9 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
     private bool _isInitialized;
     private bool _isDisposed;
 
+    /// <inheritdoc />
+    public string ModelId => _modelInfo?.Id ?? _options.ModelId;
+
     public string? Language => null; // Auto-detected per transcription
 
     public OnnxTranscriberModel(TranscriberOptions options)
@@ -345,19 +348,14 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         }
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
-        if (_isDisposed) return;
+        if (_isDisposed) return ValueTask.CompletedTask;
         _isDisposed = true;
 
         _encoderSession?.Dispose();
         _decoderSession?.Dispose();
         _lock.Dispose();
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        Dispose();
         return ValueTask.CompletedTask;
     }
 }

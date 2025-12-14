@@ -65,6 +65,39 @@ public class ModelNotFoundException : LocalAIException
 }
 
 /// <summary>
+/// Exception thrown when model loading fails (e.g., ONNX session creation error).
+/// </summary>
+public class ModelLoadException : LocalAIException
+{
+    /// <summary>
+    /// Gets the model identifier that failed to load.
+    /// </summary>
+    public string? ModelId { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ModelLoadException"/> class.
+    /// </summary>
+    /// <param name="message">The message that describes the error.</param>
+    /// <param name="modelId">The model identifier that failed to load.</param>
+    public ModelLoadException(string message, string? modelId = null) : base(message)
+    {
+        ModelId = modelId;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ModelLoadException"/> class.
+    /// </summary>
+    /// <param name="message">The message that describes the error.</param>
+    /// <param name="modelId">The model identifier that failed to load.</param>
+    /// <param name="innerException">The exception that is the cause of the current exception.</param>
+    public ModelLoadException(string message, string? modelId, Exception innerException)
+        : base(message, innerException)
+    {
+        ModelId = modelId;
+    }
+}
+
+/// <summary>
 /// Exception thrown when model download fails.
 /// </summary>
 public class ModelDownloadException : LocalAIException

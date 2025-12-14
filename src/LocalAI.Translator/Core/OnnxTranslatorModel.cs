@@ -25,6 +25,9 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
     private bool _isInitialized;
     private bool _disposed;
 
+    /// <inheritdoc />
+    public string ModelId => _modelInfo.Id;
+
     /// <summary>
     /// Gets the source language code.
     /// </summary>
@@ -341,18 +344,6 @@ internal sealed class OnnxTranslatorModel : ITranslatorModel
 
         options.EnableMemoryPattern = true;
         options.EnableCpuMemArena = true;
-    }
-
-    public void Dispose()
-    {
-        if (_disposed)
-            return;
-
-        _encoderSession?.Dispose();
-        _decoderSession?.Dispose();
-        _tokenizer?.Dispose();
-        _sessionLock.Dispose();
-        _disposed = true;
     }
 
     public async ValueTask DisposeAsync()

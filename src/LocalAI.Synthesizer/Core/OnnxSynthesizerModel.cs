@@ -21,6 +21,9 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
     private bool _isInitialized;
     private bool _isDisposed;
 
+    /// <inheritdoc />
+    public string ModelId => _modelInfo?.Id ?? _options.ModelId;
+
     public string? Voice => _modelInfo?.VoiceName;
     public int SampleRate => _config?.Audio?.SampleRate ?? 22050;
 
@@ -318,18 +321,13 @@ internal sealed class OnnxSynthesizerModel : ISynthesizerModel
         return bytes;
     }
 
-    public void Dispose()
+    public ValueTask DisposeAsync()
     {
-        if (_isDisposed) return;
+        if (_isDisposed) return ValueTask.CompletedTask;
         _isDisposed = true;
 
         _session?.Dispose();
         _lock.Dispose();
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        Dispose();
         return ValueTask.CompletedTask;
     }
 }

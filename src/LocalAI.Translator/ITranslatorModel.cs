@@ -5,8 +5,13 @@ namespace LocalAI.Translator;
 /// <summary>
 /// Interface for machine translation models.
 /// </summary>
-public interface ITranslatorModel : IDisposable, IAsyncDisposable
+public interface ITranslatorModel : IAsyncDisposable
 {
+    /// <summary>
+    /// Gets the model identifier.
+    /// </summary>
+    string ModelId { get; }
+
     /// <summary>
     /// Gets the source language code.
     /// </summary>

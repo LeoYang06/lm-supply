@@ -140,13 +140,6 @@ internal sealed class EmbeddingModel : IEmbeddingModel
 
     public ModelInfo? GetModelInfo() => _modelInfo;
 
-    public void Dispose()
-    {
-        // Synchronous disposal calls async disposal synchronously
-        // This maintains backward compatibility while supporting modern async patterns
-        DisposeAsync().AsTask().GetAwaiter().GetResult();
-    }
-
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
