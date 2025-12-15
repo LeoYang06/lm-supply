@@ -77,11 +77,18 @@ internal sealed class ModelManager : IDisposable
         if (!modelExists) filesToDownload.Add(modelInfo.OnnxFile);
         if (!tokenizerExists) filesToDownload.Add(modelInfo.TokenizerFile);
 
-        // Also try to download vocab.txt if available (for BERT tokenizers)
+        // Also try to download tokenizer-specific files based on model architecture
+        // BERT models use vocab.txt, XLM-RoBERTa models use sentencepiece.bpe.model
         var vocabPath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, "vocab.txt");
         if (!File.Exists(vocabPath) || CacheManager.IsLfsPointerFile(vocabPath))
         {
             filesToDownload.Add("vocab.txt");
+        }
+
+        var sentencepiecePath = CacheManager.GetModelFilePath(_cacheDir, modelInfo.Id, "sentencepiece.bpe.model");
+        if (!File.Exists(sentencepiecePath) || CacheManager.IsLfsPointerFile(sentencepiecePath))
+        {
+            filesToDownload.Add("sentencepiece.bpe.model");
         }
 
         await _downloader.DownloadModelAsync(

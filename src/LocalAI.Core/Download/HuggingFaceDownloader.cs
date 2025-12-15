@@ -311,7 +311,8 @@ public sealed class HuggingFaceDownloader : IDisposable
             "merges.txt",
             "tokenizer.json",
             "tokenizer_config.json",
-            "special_tokens_map.json"
+            "special_tokens_map.json",
+            "sentencepiece.bpe.model"
         ];
     }
 
@@ -332,7 +333,8 @@ public sealed class HuggingFaceDownloader : IDisposable
                filename.Equals("tokenizer.json", StringComparison.OrdinalIgnoreCase) ||
                filename.Equals("tokenizer_config.json", StringComparison.OrdinalIgnoreCase) ||
                filename.Equals("special_tokens_map.json", StringComparison.OrdinalIgnoreCase) ||
-               filename.Equals("config.json", StringComparison.OrdinalIgnoreCase);
+               filename.Equals("config.json", StringComparison.OrdinalIgnoreCase) ||
+               filename.Equals("sentencepiece.bpe.model", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
