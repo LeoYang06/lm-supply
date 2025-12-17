@@ -235,12 +235,23 @@ public sealed class BinaryDownloader : IDisposable
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    // Skip directory entries (empty file name)
+                    if (string.IsNullOrEmpty(zipEntry.Name))
+                        continue;
+
                     // Extract only the target file or files in native directory
                     if (zipEntry.Name.Equals(targetFileName, StringComparison.OrdinalIgnoreCase) ||
                         zipEntry.FullName.Contains("/lib/", StringComparison.OrdinalIgnoreCase) ||
                         zipEntry.FullName.Contains("\\lib\\", StringComparison.OrdinalIgnoreCase))
                     {
                         var destPath = Path.Combine(targetDirectory, zipEntry.Name);
+
+                        // Clean up any existing file or directory with the same name
+                        if (File.Exists(destPath))
+                            File.Delete(destPath);
+                        else if (Directory.Exists(destPath))
+                            Directory.Delete(destPath, recursive: true);
+
                         zipEntry.ExtractToFile(destPath, overwrite: true);
                     }
                 }

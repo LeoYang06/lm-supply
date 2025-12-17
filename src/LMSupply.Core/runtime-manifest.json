@@ -28,15 +28,6 @@
               "dependencies": ["onnxruntime_providers_cuda.dll", "onnxruntime_providers_shared.dll"]
             },
             {
-              "rid": "win-x64",
-              "provider": "directml",
-              "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/Microsoft.ML.OnnxRuntime.DirectML.1.20.1.nupkg",
-              "fileName": "onnxruntime.dll",
-              "size": 35000000,
-              "sha256": "placeholder-will-be-updated",
-              "dependencies": ["DirectML.dll"]
-            },
-            {
               "rid": "linux-x64",
               "provider": "cpu",
               "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-linux-x64-1.20.1.tgz",

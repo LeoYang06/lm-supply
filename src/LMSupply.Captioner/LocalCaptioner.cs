@@ -53,8 +53,12 @@ public static class LocalCaptioner
             var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
             using var downloader = new HuggingFaceDownloader(cacheDir);
 
+            // Build model-specific file list
+            var modelFiles = GetRequiredFiles(modelInfo);
+
             modelDir = await downloader.DownloadModelAsync(
                 modelInfo.RepoId,
+                files: modelFiles,
                 subfolder: modelInfo.Subfolder,
                 progress: progress,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -127,5 +131,29 @@ public static class LocalCaptioner
 
         modelInfo = null;
         return false;
+    }
+
+    /// <summary>
+    /// Gets the list of required files for a model.
+    /// </summary>
+    private static IEnumerable<string> GetRequiredFiles(ModelInfo modelInfo)
+    {
+        // ONNX model files
+        yield return modelInfo.EncoderFile;
+        yield return modelInfo.DecoderFile;
+
+        // Additional model files if specified
+        foreach (var file in modelInfo.AdditionalFiles)
+        {
+            yield return file;
+        }
+
+        // Common tokenizer and config files (these are typically in root, not subfolder)
+        yield return "config.json";
+        yield return "vocab.json";
+        yield return "merges.txt";
+        yield return "tokenizer.json";
+        yield return "tokenizer_config.json";
+        yield return "special_tokens_map.json";
     }
 }

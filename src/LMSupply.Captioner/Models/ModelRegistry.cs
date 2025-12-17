@@ -25,7 +25,10 @@ public static class ModelRegistry
             VocabSize: 50257,
             BosTokenId: 50256,
             EosTokenId: 50256,
-            PadTokenId: 50256));
+            PadTokenId: 50256)
+        {
+            Subfolder = "onnx"
+        });
 
         // Register default alias
         RegisterAlias("default", "vit-gpt2");

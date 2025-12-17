@@ -318,7 +318,8 @@ public sealed class HuggingFaceDownloader : IDisposable
 
     private static bool IsCriticalFile(string filename)
     {
-        return filename.Equals("model.onnx", StringComparison.OrdinalIgnoreCase);
+        // ONNX model files are critical
+        return filename.EndsWith(".onnx", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

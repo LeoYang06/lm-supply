@@ -155,17 +155,35 @@ public sealed class RuntimeManager : IAsyncDisposable
             throw new InvalidOperationException(
                 $"No binary available for {package} {actualVersion} on {rid} with provider {actualProvider}");
 
-        // Download and cache
-        var targetDirectory = _cache.GetCacheDirectory(package, actualVersion, rid, actualProvider);
-        var binaryPath = await _downloader.DownloadAsync(entry, targetDirectory, progress, cancellationToken);
+        // Download and cache with fallback to CPU on failure
+        try
+        {
+            var targetDirectory = _cache.GetCacheDirectory(package, actualVersion, rid, actualProvider);
+            var binaryPath = await _downloader.DownloadAsync(entry, targetDirectory, progress, cancellationToken);
 
-        // Register in cache
-        await _cache.RegisterAsync(entry, package, actualVersion, binaryPath, cancellationToken);
+            // Register in cache
+            await _cache.RegisterAsync(entry, package, actualVersion, binaryPath, cancellationToken);
 
-        // Register with native loader
-        NativeLoader.Instance.RegisterDirectory(targetDirectory);
+            // Register with native loader
+            NativeLoader.Instance.RegisterDirectory(targetDirectory);
 
-        return targetDirectory;
+            return targetDirectory;
+        }
+        catch (Exception) when (actualProvider != "cpu")
+        {
+            // Fallback to CPU provider if GPU provider download fails
+            var cpuEntry = await _manifestProvider.GetBinaryAsync(package, actualVersion, rid, "cpu", cancellationToken);
+            if (cpuEntry is null)
+                throw;
+
+            var cpuTargetDirectory = _cache.GetCacheDirectory(package, actualVersion, rid, "cpu");
+            var cpuBinaryPath = await _downloader.DownloadAsync(cpuEntry, cpuTargetDirectory, progress, cancellationToken);
+
+            await _cache.RegisterAsync(cpuEntry, package, actualVersion, cpuBinaryPath, cancellationToken);
+            NativeLoader.Instance.RegisterDirectory(cpuTargetDirectory);
+
+            return cpuTargetDirectory;
+        }
     }
 
     /// <summary>
