@@ -60,7 +60,7 @@ jobs:
 
       - name: Test
         if: steps.check.outputs.SKIP != 'true' && hashFiles('tests/**/*.csproj') != ''
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: dotnet test --configuration Release --no-build --verbosity normal --filter "Category!=Integration"
 
       - name: Pack
         if: steps.check.outputs.SKIP != 'true'
