@@ -72,19 +72,24 @@ public sealed class HuggingFaceDownloader : IDisposable
         var modelDir = CacheManager.GetModelDirectory(_cacheDir, repoId, revision);
         Directory.CreateDirectory(modelDir);
 
-        // Download all discovered files
+        // Download all discovered files, preserving directory structure
         foreach (var file in discovery.GetAllFiles())
         {
-            var fileName = Path.GetFileName(file);
-            var localPath = Path.Combine(modelDir, fileName);
+            // Preserve the full relative path structure (e.g., "unet/model.onnx_data")
+            var localPath = Path.Combine(modelDir, file.Replace('/', Path.DirectorySeparatorChar));
+
+            // Ensure parent directory exists
+            var parentDir = Path.GetDirectoryName(localPath);
+            if (!string.IsNullOrEmpty(parentDir))
+            {
+                Directory.CreateDirectory(parentDir);
+            }
 
             if (!File.Exists(localPath) || CacheManager.IsLfsPointerFile(localPath))
             {
-                // Determine subfolder from file path
-                var fileSubfolder = file.Contains('/') ? file[..file.LastIndexOf('/')] : null;
-
+                // Download using the full file path (includes subfolder)
                 await DownloadFileWithRetryAsync(
-                    repoId, fileName, localPath, revision, fileSubfolder,
+                    repoId, file, localPath, revision, subfolder: null,
                     progress, cancellationToken);
             }
         }

@@ -270,6 +270,12 @@ public static class CacheManager
             repoLower.Contains("bge-reranker"))
             return ModelType.Reranker;
 
+        // ImageGenerator: stable-diffusion, lcm, dreamshaper, sdxl
+        if (repoLower.Contains("stable-diffusion") || repoLower.Contains("lcm") ||
+            repoLower.Contains("dreamshaper") || repoLower.Contains("sdxl") ||
+            repoLower.Contains("txt2img") || repoLower.Contains("text-to-image"))
+            return ModelType.ImageGenerator;
+
         // Transcriber: whisper
         if (repoLower.Contains("whisper"))
             return ModelType.Transcriber;
@@ -292,6 +298,13 @@ public static class CacheManager
         // Synthesizer: .onnx.json config file
         if (files.Any(f => f.EndsWith(".onnx.json", StringComparison.OrdinalIgnoreCase)))
             return ModelType.Synthesizer;
+
+        // ImageGenerator: model_index.json or unet/text_encoder/vae structure
+        if (fileSet.Contains("model_index.json") ||
+            (files.Any(f => f.Contains("unet", StringComparison.OrdinalIgnoreCase)) &&
+             files.Any(f => f.Contains("text_encoder", StringComparison.OrdinalIgnoreCase)) &&
+             files.Any(f => f.Contains("vae", StringComparison.OrdinalIgnoreCase))))
+            return ModelType.ImageGenerator;
 
         // Embedder: pooling layer or sentence-transformers structure
         if (fileSet.Contains("sentence_bert_config.json") ||

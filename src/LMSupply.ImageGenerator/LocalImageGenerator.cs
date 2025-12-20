@@ -1,3 +1,4 @@
+using LMSupply.Core.Download;
 using LMSupply.Download;
 using LMSupply.ImageGenerator.Models;
 
@@ -8,22 +9,6 @@ namespace LMSupply.ImageGenerator;
 /// </summary>
 public static class LocalImageGenerator
 {
-    /// <summary>
-    /// Required files for LCM model loading.
-    /// </summary>
-    private static readonly string[] RequiredFiles =
-    [
-        // Text encoder
-        "text_encoder/model.onnx",
-        // UNet
-        "unet/model.onnx",
-        // VAE decoder
-        "vae_decoder/model.onnx",
-        // Tokenizer files
-        "tokenizer/vocab.json",
-        "tokenizer/merges.txt"
-    ];
-
     /// <summary>
     /// Loads an image generator model.
     /// </summary>
@@ -112,8 +97,15 @@ public static class LocalImageGenerator
     }
 
     /// <summary>
-    /// Downloads a model from HuggingFace.
+    /// Downloads a model from HuggingFace using automatic file discovery.
     /// </summary>
+    /// <remarks>
+    /// Uses the HuggingFace API to discover all model files including:
+    /// - ONNX model files (text_encoder, unet, vae_decoder)
+    /// - External data files (.onnx_data) containing model weights
+    /// - Tokenizer and configuration files
+    /// This approach is more robust than hardcoding file paths.
+    /// </remarks>
     private static async Task<string> DownloadModelAsync(
         string repoId,
         ImageGeneratorOptions options,
@@ -133,39 +125,19 @@ public static class LocalImageGenerator
             })
             : null;
 
-        // Download model files
-        var modelPath = await downloader.DownloadModelAsync(
+        // Use discovery-based download to automatically find all model files
+        // including ONNX models, external data files, and config/tokenizer files
+        var (modelPath, _) = await downloader.DownloadWithDiscoveryAsync(
             repoId,
-            files: GetModelFiles(repoId),
+            preferences: new ModelPreferences
+            {
+                QuantizationPriority = [Quantization.Default],
+                PreferredProvider = ExecutionProvider.Cpu
+            },
             revision: "main",
-            subfolder: null,
             progress: progressAdapter,
             cancellationToken: cancellationToken);
 
         return modelPath;
-    }
-
-    /// <summary>
-    /// Gets the list of files to download for a model.
-    /// </summary>
-    private static IEnumerable<string> GetModelFiles(string repoId)
-    {
-        // Standard LCM ONNX model structure
-        return
-        [
-            // ONNX models
-            "text_encoder/model.onnx",
-            "unet/model.onnx",
-            "vae_decoder/model.onnx",
-            // Tokenizer
-            "tokenizer/vocab.json",
-            "tokenizer/merges.txt",
-            "tokenizer/tokenizer_config.json",
-            "tokenizer/special_tokens_map.json",
-            // Scheduler config
-            "scheduler/scheduler_config.json",
-            // Model config
-            "model_index.json"
-        ];
     }
 }

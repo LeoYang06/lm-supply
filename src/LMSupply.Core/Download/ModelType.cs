@@ -36,5 +36,8 @@ public enum ModelType
     Ocr,
 
     /// <summary>Image segmentation models.</summary>
-    Segmenter
+    Segmenter,
+
+    /// <summary>Text-to-image generation models (Stable Diffusion, LCM).</summary>
+    ImageGenerator
 }
