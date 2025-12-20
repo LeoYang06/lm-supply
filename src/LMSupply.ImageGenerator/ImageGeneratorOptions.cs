@@ -1,0 +1,45 @@
+using LMSupply.Core;
+
+namespace LMSupply.ImageGenerator;
+
+/// <summary>
+/// Options for configuring the image generator model.
+/// </summary>
+public sealed class ImageGeneratorOptions
+{
+    /// <summary>
+    /// Directory for caching downloaded models.
+    /// Default: ~/.cache/huggingface/hub/
+    /// </summary>
+    public string? CacheDirectory { get; set; }
+
+    /// <summary>
+    /// Execution provider for inference.
+    /// Default: ExecutionProvider.Auto (auto-detect best available)
+    /// </summary>
+    public ExecutionProvider Provider { get; set; } = ExecutionProvider.Auto;
+
+    /// <summary>
+    /// Number of threads to use for CPU inference.
+    /// Default: null (use system default)
+    /// </summary>
+    public int? ThreadCount { get; set; }
+
+    /// <summary>
+    /// Whether to disable automatic model downloading.
+    /// Default: false
+    /// </summary>
+    public bool DisableAutoDownload { get; set; } = false;
+
+    /// <summary>
+    /// Whether to use FP16 precision for reduced memory usage.
+    /// Default: true (recommended for GPU inference)
+    /// </summary>
+    public bool UseFp16 { get; set; } = true;
+
+    /// <summary>
+    /// Device ID for GPU inference (0-based index).
+    /// Default: 0
+    /// </summary>
+    public int DeviceId { get; set; } = 0;
+}

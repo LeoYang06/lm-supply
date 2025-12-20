@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>LMSupply.ImageGenerator</PackageId>
+    <Description>A simple .NET library for local text-to-image generation using Latent Consistency Models (LCM). Supports CUDA, DirectML, and CoreML GPU acceleration with 2-4 step fast inference.</Description>
+    <PackageTags>text-to-image;image-generation;stable-diffusion;lcm;ai;ml;onnx;huggingface;gpu;cuda;directml</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Build Settings -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LMSupply.ImageGenerator.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LMSupply.Vision.Core\LMSupply.Vision.Core.csproj" />
+    <ProjectReference Include="..\LMSupply.Text.Core\LMSupply.Text.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Numerics.Tensors" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <!-- Exclude native runtimes from NuGet package - they will be lazy-loaded -->
+  <ItemGroup>
+    <None Remove="runtimes\**\*" />
+  </ItemGroup>
+
+  <Target Name="ExcludeNativeAssets" BeforeTargets="GenerateNuspec">
+    <ItemGroup>
+      <_PackageFiles Remove="@(_PackageFiles)" Condition="$([System.String]::Copy('%(Identity)').Contains('runtimes'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>
