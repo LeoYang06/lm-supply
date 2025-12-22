@@ -77,11 +77,11 @@ public class ModelRegistryTests
     }
 
     [Fact]
-    public void QualityAlias_PointsToBgeBase()
+    public void QualityAlias_PointsToGteBase()
     {
         ModelRegistry.TryGetModel("quality", out var info);
 
         info.Should().NotBeNull();
-        info!.RepoId.Should().Be("BAAI/bge-base-en-v1.5");
+        info!.RepoId.Should().Be("Alibaba-NLP/gte-base-en-v1.5");
     }
 }
