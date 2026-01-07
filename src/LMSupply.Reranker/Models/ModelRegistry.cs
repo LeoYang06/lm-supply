@@ -7,6 +7,7 @@ public sealed class ModelRegistry
 {
     private readonly Dictionary<string, ModelInfo> _modelsByAlias;
     private readonly Dictionary<string, ModelInfo> _modelsById;
+    private readonly Dictionary<string, ModelInfo> _modelsByName;
 
     /// <summary>
     /// Gets the default registry instance with built-in models.
@@ -24,11 +25,20 @@ public sealed class ModelRegistry
         var modelList = models.ToList();
         _modelsByAlias = new Dictionary<string, ModelInfo>(StringComparer.OrdinalIgnoreCase);
         _modelsById = new Dictionary<string, ModelInfo>(StringComparer.OrdinalIgnoreCase);
+        _modelsByName = new Dictionary<string, ModelInfo>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var model in modelList)
         {
             _modelsByAlias[model.Alias] = model;
             _modelsById[model.Id] = model;
+
+            // Also index by model name (part after "/" in HuggingFace IDs)
+            // e.g., "BAAI/bge-reranker-base" -> "bge-reranker-base"
+            if (model.Id.Contains('/'))
+            {
+                var modelName = model.Id.Split('/').Last();
+                _modelsByName.TryAdd(modelName, model);
+            }
         }
     }
 
@@ -60,6 +70,12 @@ public sealed class ModelRegistry
             return modelById;
         }
 
+        // Try model name (e.g., "bge-reranker-base" matches "BAAI/bge-reranker-base")
+        if (_modelsByName.TryGetValue(modelIdOrAlias, out var modelByName))
+        {
+            return modelByName;
+        }
+
         // Assume it's a HuggingFace ID not in our registry
         if (modelIdOrAlias.Contains('/'))
         {
@@ -68,7 +84,7 @@ public sealed class ModelRegistry
 
         throw new ModelNotFoundException(
             $"Model '{modelIdOrAlias}' not found. Use a built-in alias (default, quality, fast, multilingual), " +
-            "a HuggingFace model ID (org/model), or a local file path.",
+            "a model name (e.g., bge-reranker-base), a HuggingFace model ID (org/model), or a local file path.",
             modelIdOrAlias);
     }
 

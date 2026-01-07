@@ -159,8 +159,8 @@ public static class LocalEmbedder
         var tokenizerDir = Path.GetDirectoryName(vocabPath)!;
         var tokenizer = await TokenizerFactory.CreateWordPieceAsync(tokenizerDir, options.MaxSequenceLength);
 
-        // Load inference engine
-        var engine = OnnxInferenceEngine.Create(modelPath, options.Provider);
+        // Load inference engine (use async to ensure RuntimeManager initializes native binaries)
+        var engine = await OnnxInferenceEngine.CreateAsync(modelPath, options.Provider);
 
         // Create pooling strategy
         var poolingStrategy = PoolingFactory.Create(options.PoolingMode);

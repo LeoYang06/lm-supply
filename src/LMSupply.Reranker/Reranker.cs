@@ -189,8 +189,8 @@ public sealed class Reranker : IRerankerModel
             var modelDir = Path.GetDirectoryName(modelPaths.TokenizerPath)!;
             var tokenizer = await TokenizerFactory.CreateWordPiecePairAsync(modelDir, maxLength);
 
-            // Initialize inference engine
-            var inference = CrossEncoderInference.Create(
+            // Initialize inference engine (use async to ensure RuntimeManager initializes native binaries)
+            var inference = await CrossEncoderInference.CreateAsync(
                 modelPaths.ModelPath,
                 modelInfo,
                 _options.Provider,
