@@ -169,6 +169,201 @@ public static class TokenizerFactory
             "Expected vocab.txt, vocab.json + merges.txt, tokenizer.json, or .spm model");
     }
 
+    /// <summary>
+    /// Creates a SentencePiece/Unigram pair tokenizer (for cross-encoders/rerankers with non-WordPiece models).
+    /// </summary>
+    /// <param name="modelDir">Path to model directory.</param>
+    /// <param name="maxSequenceLength">Maximum sequence length.</param>
+    /// <returns>A pair tokenizer instance.</returns>
+    public static async Task<IPairTokenizer> CreateSentencePiecePairAsync(
+        string modelDir,
+        int maxSequenceLength = 512)
+    {
+        var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
+        var spmPath = FindSentencePieceModel(modelDir);
+
+        Tokenizer tokenizer;
+        SpecialTokens specialTokens;
+
+        if (spmPath != null)
+        {
+            using var stream = File.OpenRead(spmPath);
+            tokenizer = LlamaTokenizer.Create(stream);
+            var vocab = LoadVocabularySync(modelDir);
+            specialTokens = SpecialTokens.FromVocabulary(vocab);
+        }
+        else if (File.Exists(tokenizerJsonPath))
+        {
+            // For Unigram models without .spm file, try to create from tokenizer.json
+            tokenizer = await CreateTokenizerFromJsonAsync(tokenizerJsonPath);
+            specialTokens = VocabularyLoader.ExtractSpecialTokensFromJson(tokenizerJsonPath);
+        }
+        else
+        {
+            // Fallback to BPE
+            var bpeTokenizer = CreateBpeTokenizer(modelDir);
+            if (bpeTokenizer == null)
+            {
+                throw new FileNotFoundException(
+                    $"No SentencePiece/BPE model found in: {modelDir}");
+            }
+            tokenizer = bpeTokenizer;
+            var vocab = LoadVocabularySync(modelDir);
+            specialTokens = SpecialTokens.FromVocabulary(vocab);
+        }
+
+        return new SentencePiecePairTokenizer(tokenizer, specialTokens, maxSequenceLength);
+    }
+
+    /// <summary>
+    /// Auto-detects tokenizer type and creates appropriate pair tokenizer from model directory.
+    /// Supports WordPiece, Unigram, and BPE tokenizers.
+    /// </summary>
+    /// <param name="modelDir">Path to model directory.</param>
+    /// <param name="maxSequenceLength">Maximum sequence length.</param>
+    /// <returns>A pair tokenizer instance.</returns>
+    public static async Task<IPairTokenizer> CreateAutoPairAsync(
+        string modelDir,
+        int maxSequenceLength = 512)
+    {
+        var tokenizerJsonPath = Path.Combine(modelDir, "tokenizer.json");
+        var vocabTxtPath = Path.Combine(modelDir, "vocab.txt");
+
+        // If vocab.txt exists, use WordPiece (BERT-style)
+        if (File.Exists(vocabTxtPath))
+        {
+            return await CreateWordPiecePairAsync(modelDir, maxSequenceLength);
+        }
+
+        // Check tokenizer.json for model type
+        if (File.Exists(tokenizerJsonPath))
+        {
+            var tokenizerType = DetectTokenizerType(tokenizerJsonPath);
+
+            return tokenizerType switch
+            {
+                "WordPiece" => await CreateWordPiecePairAsync(modelDir, maxSequenceLength),
+                "Unigram" or "BPE" => await CreateSentencePiecePairAsync(modelDir, maxSequenceLength),
+                _ => await CreateSentencePiecePairAsync(modelDir, maxSequenceLength)
+            };
+        }
+
+        // Check for SentencePiece model
+        if (FindSentencePieceModel(modelDir) != null)
+        {
+            return await CreateSentencePiecePairAsync(modelDir, maxSequenceLength);
+        }
+
+        throw new FileNotFoundException(
+            $"Could not determine tokenizer type from: {modelDir}. " +
+            "Expected vocab.txt, tokenizer.json, or .spm model");
+    }
+
+    /// <summary>
+    /// Detects the tokenizer type from tokenizer.json.
+    /// </summary>
+    private static string? DetectTokenizerType(string tokenizerJsonPath)
+    {
+        try
+        {
+            var json = File.ReadAllText(tokenizerJsonPath);
+            using var doc = JsonDocument.Parse(json);
+
+            if (doc.RootElement.TryGetProperty("model", out var model) &&
+                model.TryGetProperty("type", out var typeElement))
+            {
+                return typeElement.GetString();
+            }
+        }
+        catch
+        {
+            // Fall through
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Creates a tokenizer from tokenizer.json for non-WordPiece models.
+    /// </summary>
+    private static async Task<Tokenizer> CreateTokenizerFromJsonAsync(string tokenizerJsonPath)
+    {
+        var json = await File.ReadAllTextAsync(tokenizerJsonPath);
+        using var doc = JsonDocument.Parse(json);
+
+        if (!doc.RootElement.TryGetProperty("model", out var model))
+        {
+            throw new InvalidOperationException("Invalid tokenizer.json: missing 'model' section");
+        }
+
+        if (!model.TryGetProperty("vocab", out var vocab))
+        {
+            throw new InvalidOperationException("Invalid tokenizer.json: missing 'model.vocab' section");
+        }
+
+        // Build vocab dictionary sorted by ID
+        var vocabDict = new SortedDictionary<int, string>();
+
+        // Handle both Object and Array formats for vocab
+        if (vocab.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in vocab.EnumerateObject())
+            {
+                vocabDict[property.Value.GetInt32()] = property.Name;
+            }
+        }
+        else if (vocab.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in vocab.EnumerateArray())
+            {
+                if (item.TryGetProperty("id", out var idProp) &&
+                    item.TryGetProperty("content", out var contentProp))
+                {
+                    vocabDict[idProp.GetInt32()] = contentProp.GetString() ?? string.Empty;
+                }
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Invalid tokenizer.json: 'model.vocab' has unexpected type '{vocab.ValueKind}'.");
+        }
+
+        if (vocabDict.Count == 0)
+        {
+            throw new InvalidOperationException("Invalid tokenizer.json: 'model.vocab' is empty");
+        }
+
+        // Try to detect tokenizer type and handle appropriately
+        var tokenizerType = model.TryGetProperty("type", out var typeElement)
+            ? typeElement.GetString()
+            : null;
+
+        // For Unigram models, we need to create a different tokenizer
+        // Try using the BPE approach with vocab
+        var vocabJsonPath = Path.Combine(Path.GetDirectoryName(tokenizerJsonPath)!, "vocab.json");
+        var mergesPath = Path.Combine(Path.GetDirectoryName(tokenizerJsonPath)!, "merges.txt");
+
+        if (File.Exists(vocabJsonPath) && File.Exists(mergesPath))
+        {
+            using var vocabStream = File.OpenRead(vocabJsonPath);
+            using var mergesStream = File.OpenRead(mergesPath);
+            return CodeGenTokenizer.Create(vocabStream, mergesStream);
+        }
+
+        // Fallback: Create a simple vocab-based tokenizer using WordPiece format
+        // This works for many Unigram models that have BERT-compatible special tokens
+        var vocabLines = new StringBuilder();
+        for (var i = 0; i < vocabDict.Count; i++)
+        {
+            vocabLines.AppendLine(vocabDict.TryGetValue(i, out var token) ? token : $"[unused{i}]");
+        }
+
+        var vocabBytes = Encoding.UTF8.GetBytes(vocabLines.ToString());
+        using var vocabStream2 = new MemoryStream(vocabBytes);
+        return WordPieceTokenizer.Create(vocabStream2);
+    }
+
     private static Tokenizer CreateWordPieceFromJson(string tokenizerJsonPath)
     {
         var json = File.ReadAllText(tokenizerJsonPath);

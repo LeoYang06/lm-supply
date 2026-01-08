@@ -185,9 +185,10 @@ public sealed class Reranker : IRerankerModel
             // Determine max sequence length
             var maxLength = _options.MaxSequenceLength ?? modelInfo.MaxSequenceLength;
 
-            // Initialize tokenizer using Text.Core
+            // Initialize tokenizer using Text.Core with auto-detection
+            // This supports WordPiece, Unigram, and BPE tokenizers
             var modelDir = Path.GetDirectoryName(modelPaths.TokenizerPath)!;
-            var tokenizer = await TokenizerFactory.CreateWordPiecePairAsync(modelDir, maxLength);
+            var tokenizer = await TokenizerFactory.CreateAutoPairAsync(modelDir, maxLength);
 
             // Initialize inference engine (use async to ensure RuntimeManager initializes native binaries)
             var inference = await CrossEncoderInference.CreateAsync(
