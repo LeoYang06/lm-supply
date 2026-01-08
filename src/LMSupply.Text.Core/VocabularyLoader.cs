@@ -211,13 +211,36 @@ public static class VocabularyLoader
                 model.TryGetProperty("vocab", out var vocab))
             {
                 var result = new Dictionary<string, int>(StringComparer.Ordinal);
-                foreach (var property in vocab.EnumerateObject())
+
+                // Handle both Object and Array formats for vocab
+                if (vocab.ValueKind == JsonValueKind.Object)
                 {
-                    if (property.Value.TryGetInt32(out var id))
+                    foreach (var property in vocab.EnumerateObject())
                     {
-                        result[property.Name] = id;
+                        if (property.Value.TryGetInt32(out var id))
+                        {
+                            result[property.Name] = id;
+                        }
                     }
                 }
+                else if (vocab.ValueKind == JsonValueKind.Array)
+                {
+                    // Handle array format: [{"id": 0, "content": "[PAD]"}, ...]
+                    foreach (var item in vocab.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("id", out var idProp) &&
+                            item.TryGetProperty("content", out var contentProp) &&
+                            idProp.TryGetInt32(out var id))
+                        {
+                            var content = contentProp.GetString();
+                            if (content != null)
+                            {
+                                result[content] = id;
+                            }
+                        }
+                    }
+                }
+
                 return result;
             }
         }

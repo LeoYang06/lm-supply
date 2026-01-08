@@ -174,17 +174,61 @@ public static class TokenizerFactory
         var json = File.ReadAllText(tokenizerJsonPath);
         using var doc = JsonDocument.Parse(json);
 
-        if (!doc.RootElement.TryGetProperty("model", out var model) ||
-            !model.TryGetProperty("vocab", out var vocab))
+        if (!doc.RootElement.TryGetProperty("model", out var model))
         {
-            throw new InvalidOperationException("Invalid tokenizer.json: missing model.vocab section");
+            throw new InvalidOperationException("Invalid tokenizer.json: missing 'model' section");
+        }
+
+        // Check model type - WordPiece tokenizer only works with WordPiece models
+        if (model.TryGetProperty("type", out var modelType))
+        {
+            var typeStr = modelType.GetString();
+            if (typeStr != null && !typeStr.Equals("WordPiece", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Tokenizer type mismatch: expected 'WordPiece' but found '{typeStr}'. " +
+                    $"This model may require a different tokenizer (e.g., SentencePiece for BPE/Unigram models).");
+            }
+        }
+
+        if (!model.TryGetProperty("vocab", out var vocab))
+        {
+            throw new InvalidOperationException("Invalid tokenizer.json: missing 'model.vocab' section");
         }
 
         // Build vocab dictionary sorted by ID
         var vocabDict = new SortedDictionary<int, string>();
-        foreach (var property in vocab.EnumerateObject())
+
+        // Handle both Object and Array formats for vocab
+        if (vocab.ValueKind == JsonValueKind.Object)
         {
-            vocabDict[property.Value.GetInt32()] = property.Name;
+            foreach (var property in vocab.EnumerateObject())
+            {
+                vocabDict[property.Value.GetInt32()] = property.Name;
+            }
+        }
+        else if (vocab.ValueKind == JsonValueKind.Array)
+        {
+            // Some tokenizers use array format: [{"id": 0, "content": "[PAD]"}, ...]
+            foreach (var item in vocab.EnumerateArray())
+            {
+                if (item.TryGetProperty("id", out var idProp) &&
+                    item.TryGetProperty("content", out var contentProp))
+                {
+                    vocabDict[idProp.GetInt32()] = contentProp.GetString() ?? string.Empty;
+                }
+            }
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Invalid tokenizer.json: 'model.vocab' has unexpected type '{vocab.ValueKind}'. " +
+                "Expected Object (token → id) or Array ([{{id, content}}]).");
+        }
+
+        if (vocabDict.Count == 0)
+        {
+            throw new InvalidOperationException("Invalid tokenizer.json: 'model.vocab' is empty");
         }
 
         // Create vocab.txt content
@@ -266,13 +310,7 @@ public static class TokenizerFactory
             try
             {
                 using var doc = JsonDocument.Parse(json);
-                foreach (var property in doc.RootElement.EnumerateObject())
-                {
-                    if (property.Value.TryGetInt32(out var id))
-                    {
-                        vocab[property.Name] = id;
-                    }
-                }
+                ParseVocabElement(doc.RootElement, vocab);
             }
             catch
             {
@@ -293,13 +331,7 @@ public static class TokenizerFactory
                     model.TryGetProperty("vocab", out var vocabElement))
                 {
                     var vocab = new Dictionary<string, int>(StringComparer.Ordinal);
-                    foreach (var property in vocabElement.EnumerateObject())
-                    {
-                        if (property.Value.TryGetInt32(out var id))
-                        {
-                            vocab[property.Name] = id;
-                        }
-                    }
+                    ParseVocabElement(vocabElement, vocab);
                     return vocab;
                 }
             }
@@ -310,5 +342,39 @@ public static class TokenizerFactory
         }
 
         return [];
+    }
+
+    /// <summary>
+    /// Parses vocab element handling both Object and Array formats.
+    /// </summary>
+    private static void ParseVocabElement(JsonElement element, Dictionary<string, int> vocab)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in element.EnumerateObject())
+            {
+                if (property.Value.TryGetInt32(out var id))
+                {
+                    vocab[property.Name] = id;
+                }
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            // Handle array format: [{"id": 0, "content": "[PAD]"}, ...]
+            foreach (var item in element.EnumerateArray())
+            {
+                if (item.TryGetProperty("id", out var idProp) &&
+                    item.TryGetProperty("content", out var contentProp) &&
+                    idProp.TryGetInt32(out var id))
+                {
+                    var content = contentProp.GetString();
+                    if (content != null)
+                    {
+                        vocab[content] = id;
+                    }
+                }
+            }
+        }
     }
 }
