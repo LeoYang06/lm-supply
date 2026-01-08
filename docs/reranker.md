@@ -243,6 +243,18 @@ if (info != null)
    - `multilingual` for non-English or mixed-language content
 5. **Warmup before production** - Call `WarmupAsync()` to pre-load the model
 
+## Supported Tokenizer Types
+
+The reranker automatically detects and uses the appropriate tokenizer for each model:
+
+| Type | Detection | Example Models |
+|------|-----------|----------------|
+| WordPiece | `vocab.txt` | MS MARCO MiniLM, TinyBERT |
+| Unigram | `tokenizer.json` (type: Unigram) | bge-reranker-base, XLM-RoBERTa |
+| BPE | `tokenizer.json` (type: BPE) | Some multilingual models |
+
+This auto-detection ensures compatibility with a wide range of cross-encoder models from HuggingFace.
+
 ## Handling Long Documents
 
 For documents longer than the model's max sequence length:
