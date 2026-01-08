@@ -314,13 +314,31 @@ public static class TokenizerFactory
         }
         else if (vocab.ValueKind == JsonValueKind.Array)
         {
+            // Handle array formats:
+            // 1. [{"id": 0, "content": "[PAD]"}, ...] - Object items
+            // 2. [["token", score], ...] - Unigram format (tuple-like arrays)
+            var index = 0;
             foreach (var item in vocab.EnumerateArray())
             {
-                if (item.TryGetProperty("id", out var idProp) &&
-                    item.TryGetProperty("content", out var contentProp))
+                if (item.ValueKind == JsonValueKind.Object)
                 {
-                    vocabDict[idProp.GetInt32()] = contentProp.GetString() ?? string.Empty;
+                    // Object format: {"id": 0, "content": "[PAD]"}
+                    if (item.TryGetProperty("id", out var idProp) &&
+                        item.TryGetProperty("content", out var contentProp))
+                    {
+                        vocabDict[idProp.GetInt32()] = contentProp.GetString() ?? string.Empty;
+                    }
                 }
+                else if (item.ValueKind == JsonValueKind.Array)
+                {
+                    // Unigram format: ["token", score] - index is the token ID
+                    var arr = item.EnumerateArray().ToArray();
+                    if (arr.Length >= 1 && arr[0].ValueKind == JsonValueKind.String)
+                    {
+                        vocabDict[index] = arr[0].GetString() ?? string.Empty;
+                    }
+                }
+                index++;
             }
         }
         else
@@ -404,14 +422,31 @@ public static class TokenizerFactory
         }
         else if (vocab.ValueKind == JsonValueKind.Array)
         {
-            // Some tokenizers use array format: [{"id": 0, "content": "[PAD]"}, ...]
+            // Handle array formats:
+            // 1. [{"id": 0, "content": "[PAD]"}, ...] - Object items
+            // 2. [["token", score], ...] - Unigram format (tuple-like arrays)
+            var index = 0;
             foreach (var item in vocab.EnumerateArray())
             {
-                if (item.TryGetProperty("id", out var idProp) &&
-                    item.TryGetProperty("content", out var contentProp))
+                if (item.ValueKind == JsonValueKind.Object)
                 {
-                    vocabDict[idProp.GetInt32()] = contentProp.GetString() ?? string.Empty;
+                    // Object format: {"id": 0, "content": "[PAD]"}
+                    if (item.TryGetProperty("id", out var idProp) &&
+                        item.TryGetProperty("content", out var contentProp))
+                    {
+                        vocabDict[idProp.GetInt32()] = contentProp.GetString() ?? string.Empty;
+                    }
                 }
+                else if (item.ValueKind == JsonValueKind.Array)
+                {
+                    // Unigram format: ["token", score] - index is the token ID
+                    var arr = item.EnumerateArray().ToArray();
+                    if (arr.Length >= 1 && arr[0].ValueKind == JsonValueKind.String)
+                    {
+                        vocabDict[index] = arr[0].GetString() ?? string.Empty;
+                    }
+                }
+                index++;
             }
         }
         else
@@ -556,19 +591,40 @@ public static class TokenizerFactory
         }
         else if (element.ValueKind == JsonValueKind.Array)
         {
-            // Handle array format: [{"id": 0, "content": "[PAD]"}, ...]
+            // Handle array formats:
+            // 1. [{"id": 0, "content": "[PAD]"}, ...] - Object items
+            // 2. [["token", score], ...] - Unigram format (tuple-like arrays)
+            var index = 0;
             foreach (var item in element.EnumerateArray())
             {
-                if (item.TryGetProperty("id", out var idProp) &&
-                    item.TryGetProperty("content", out var contentProp) &&
-                    idProp.TryGetInt32(out var id))
+                if (item.ValueKind == JsonValueKind.Object)
                 {
-                    var content = contentProp.GetString();
-                    if (content != null)
+                    // Object format: {"id": 0, "content": "[PAD]"}
+                    if (item.TryGetProperty("id", out var idProp) &&
+                        item.TryGetProperty("content", out var contentProp) &&
+                        idProp.TryGetInt32(out var id))
                     {
-                        vocab[content] = id;
+                        var content = contentProp.GetString();
+                        if (content != null)
+                        {
+                            vocab[content] = id;
+                        }
                     }
                 }
+                else if (item.ValueKind == JsonValueKind.Array)
+                {
+                    // Unigram format: ["token", score] - index is the token ID
+                    var arr = item.EnumerateArray().ToArray();
+                    if (arr.Length >= 1 && arr[0].ValueKind == JsonValueKind.String)
+                    {
+                        var token = arr[0].GetString();
+                        if (token != null)
+                        {
+                            vocab[token] = index;
+                        }
+                    }
+                }
+                index++;
             }
         }
     }

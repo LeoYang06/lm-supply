@@ -75,6 +75,9 @@ var reranker = await LocalReranker.LoadAsync("default", options);
 
 ## Version History
 
+### v0.8.9
+- Fixed JSON parsing error for Unigram vocab Array format (tuple-like arrays `["token", score]`)
+
 ### v0.8.7
 - Added automatic tokenizer type detection (WordPiece, Unigram, BPE)
 - Fixed compatibility with bge-reranker-base and other Unigram-based models
