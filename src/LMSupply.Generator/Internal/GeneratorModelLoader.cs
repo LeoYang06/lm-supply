@@ -10,17 +10,6 @@ namespace LMSupply.Generator.Internal;
 /// </summary>
 internal static class GeneratorModelLoader
 {
-    // Files required for ONNX GenAI models
-    private static readonly string[] GenAIModelFiles =
-    [
-        "genai_config.json",
-        "model.onnx",
-        "model.onnx.data",
-        "tokenizer.json",
-        "tokenizer_config.json",
-        "special_tokens_map.json"
-    ];
-
     public static async Task<IGeneratorModel> LoadAsync(
         string modelId,
         GeneratorOptions options,
@@ -30,33 +19,26 @@ internal static class GeneratorModelLoader
         var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         using var downloader = new HuggingFaceDownloader(cacheDir);
 
-        // Look up model in registry to get subfolder
+        // Look up model in registry to get subfolder preference
         var modelInfo = ModelRegistry.GetModel(modelId);
 
-        string modelPath;
+        // Build preferences from registry info if available
+        var preferences = modelInfo?.Subfolder != null
+            ? new ModelPreferences { PreferredSubfolder = modelInfo.Subfolder }
+            : ModelPreferences.Default;
 
-        if (modelInfo is not null)
-        {
-            // Known model: use registry subfolder
-            modelPath = await downloader.DownloadModelAsync(
-                modelId,
-                files: GenAIModelFiles,
-                revision: "main",
-                subfolder: modelInfo.Subfolder,
-                progress: progress,
-                cancellationToken: cancellationToken);
-        }
-        else
-        {
-            // Unknown model: use auto-discovery to find ONNX files
-            var (downloadedDir, _) = await downloader.DownloadWithDiscoveryAsync(
-                modelId,
-                preferences: ModelPreferences.Default,
-                progress: progress,
-                cancellationToken: cancellationToken);
+        // Use discovery-based download for all models
+        // This handles dynamic ONNX file names (e.g., phi-3.5-mini-instruct-*.onnx)
+        var (basePath, discovery) = await downloader.DownloadWithDiscoveryAsync(
+            modelId,
+            preferences: preferences,
+            progress: progress,
+            cancellationToken: cancellationToken);
 
-            modelPath = downloadedDir;
-        }
+        // Build the actual model path including subfolder if present
+        var modelPath = discovery.Subfolder != null
+            ? Path.Combine(basePath, discovery.Subfolder.Replace('/', Path.DirectorySeparatorChar))
+            : basePath;
 
         return await LoadFromPathAsync(modelPath, options, modelId);
     }

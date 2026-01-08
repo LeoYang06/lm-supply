@@ -492,15 +492,22 @@ public sealed class ModelDiscoveryService : IDisposable
 
         foreach (var onnxPath in onnxFiles)
         {
-            // Check for .onnx_data file
-            var dataPath = onnxPath + "_data";
-            if (allFiles.Any(f => f.Path.Equals(dataPath, StringComparison.OrdinalIgnoreCase)))
+            // Check for .onnx.data file (HuggingFace format: model.onnx → model.onnx.data)
+            var dotDataPath = onnxPath + ".data";
+            if (allFiles.Any(f => f.Path.Equals(dotDataPath, StringComparison.OrdinalIgnoreCase)))
             {
-                dataFiles.Add(dataPath);
+                dataFiles.Add(dotDataPath);
+            }
+
+            // Check for .onnx_data file (alternative format: model.onnx → model.onnx_data)
+            var underscoreDataPath = onnxPath + "_data";
+            if (allFiles.Any(f => f.Path.Equals(underscoreDataPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                dataFiles.Add(underscoreDataPath);
             }
 
             // Check for chunked data files (.onnx_data_0, .onnx_data_1, ...)
-            var dataPathPrefix = dataPath + "_";
+            var dataPathPrefix = underscoreDataPath + "_";
             var chunks = allFiles
                 .Where(f => f.Path.StartsWith(dataPathPrefix, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(f => f.Path)
