@@ -276,7 +276,11 @@ Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
 
 ## GPU Acceleration
 
-GPU acceleration is automatic when detected:
+GPU acceleration is **automatic** — LMSupply detects your hardware and downloads appropriate runtime binaries on first use:
+
+```
+Detection priority: CUDA → DirectML → CoreML → CPU
+```
 
 ```csharp
 // Auto-detect (default) - uses GPU if available, falls back to CPU
@@ -288,13 +292,58 @@ var options = new EmbedderOptions { Provider = ExecutionProvider.DirectML }; // 
 var options = new EmbedderOptions { Provider = ExecutionProvider.CoreML };   // macOS
 ```
 
-Install the appropriate ONNX Runtime package for GPU support:
+### Verify GPU Detection
+
+```csharp
+using LMSupply.Core;
+
+var env = RuntimeManager.GetEnvironmentSummary();
+Console.WriteLine($"Provider: {env.RecommendedProvider}");
+Console.WriteLine($"CUDA: {env.CudaAvailable}");
+Console.WriteLine($"DirectML: {env.DirectMlAvailable}");
+```
+
+### Troubleshooting GPU Issues
+
+**Do NOT install ONNX Runtime packages manually.** LMSupply handles runtime binary management automatically via lazy downloading.
+
+If you have conflicting packages installed, remove them:
 
 ```bash
-dotnet add package Microsoft.ML.OnnxRuntime.Gpu       # NVIDIA CUDA
-dotnet add package Microsoft.ML.OnnxRuntime.DirectML  # Windows (AMD, Intel, NVIDIA)
-dotnet add package Microsoft.ML.OnnxRuntime.CoreML    # macOS
+dotnet remove package Microsoft.ML.OnnxRuntime
+dotnet remove package Microsoft.ML.OnnxRuntime.Gpu
+dotnet remove package Microsoft.ML.OnnxRuntime.DirectML
 ```
+
+For NVIDIA CUDA support, ensure you have:
+- NVIDIA GPU drivers installed
+- CUDA 11.x or 12.x runtime (LMSupply auto-selects the appropriate version)
+
+---
+
+## Thread Safety & Batch Processing
+
+All LMSupply models are **thread-safe** for concurrent inference. ONNX Runtime's `InferenceSession.Run()` is thread-safe by design.
+
+```csharp
+// Safe: Concurrent inference on the same model instance
+await using var embedder = await LocalEmbedder.LoadAsync("default");
+
+await Parallel.ForEachAsync(documents, async (doc, ct) =>
+{
+    var embedding = await embedder.EmbedAsync(doc, ct);
+    // Process embedding...
+});
+
+// Or with Task.WhenAll
+var tasks = documents.Select(d => embedder.EmbedAsync(d));
+var embeddings = await Task.WhenAll(tasks);
+```
+
+**Performance tips:**
+- GPU inference: 2-4 concurrent operations typically optimal
+- CPU inference: Match `MaxDegreeOfParallelism` to core count
+- Use `EmbedBatchAsync()` when available for better throughput
 
 ---
 
