@@ -295,12 +295,18 @@ var options = new EmbedderOptions { Provider = ExecutionProvider.CoreML };   // 
 ### Verify GPU Detection
 
 ```csharp
-using LMSupply.Core;
+using LMSupply.Runtime;
 
-var env = RuntimeManager.GetEnvironmentSummary();
-Console.WriteLine($"Provider: {env.RecommendedProvider}");
-Console.WriteLine($"CUDA: {env.CudaAvailable}");
-Console.WriteLine($"DirectML: {env.DirectMlAvailable}");
+// Quick summary (returns formatted string)
+Console.WriteLine(EnvironmentDetector.GetEnvironmentSummary());
+
+// Or access individual properties
+var gpu = EnvironmentDetector.DetectGpu();
+var provider = EnvironmentDetector.GetRecommendedProvider();
+
+Console.WriteLine($"Provider: {provider}");
+Console.WriteLine($"CUDA Available: {gpu.Vendor == GpuVendor.Nvidia && gpu.CudaDriverVersionMajor >= 11}");
+Console.WriteLine($"DirectML Available: {gpu.DirectMLSupported}");
 ```
 
 ### Troubleshooting GPU Issues

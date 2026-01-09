@@ -5,6 +5,7 @@ namespace LMSupply.Transcriber.Decoding;
 
 /// <summary>
 /// Whisper autoregressive decoder using greedy search.
+/// Supports both standard and merged (with KV cache) decoder models.
 /// </summary>
 internal sealed class WhisperDecoder
 {
@@ -16,6 +17,7 @@ internal sealed class WhisperDecoder
     private const string InputTokensName = "input_ids";
     private const string InputEncoderHiddenStates = "encoder_hidden_states";
     private const string OutputLogitsName = "logits";
+    private const string UseCacheBranchName = "use_cache_branch";
 
     // Alternative names used by some ONNX exports
     private static readonly string[] TokenInputNames = ["input_ids", "tokens", "decoder_input_ids"];
@@ -24,6 +26,12 @@ internal sealed class WhisperDecoder
     private readonly string _actualTokenInputName;
     private readonly string _actualEncoderInputName;
     private readonly string _actualLogitsOutputName;
+
+    // Merged model support
+    private readonly bool _isMergedModel;
+    private readonly List<(string Name, int[] Dims)> _pastKeyValueInputs = [];
+    private readonly int _numAttentionHeads;
+    private readonly int _headDim;
 
     public WhisperDecoder(
         InferenceSession decoderSession,
@@ -49,6 +57,33 @@ internal sealed class WhisperDecoder
         _actualLogitsOutputName = outputNames.Contains(OutputLogitsName) ? OutputLogitsName
             : outputNames.FirstOrDefault(n => n.Contains("logit", StringComparison.OrdinalIgnoreCase))
             ?? outputNames.First();
+
+        // Detect if this is a merged model (has use_cache_branch input)
+        _isMergedModel = inputNames.Contains(UseCacheBranchName);
+
+        if (_isMergedModel)
+        {
+            // Collect past_key_values input metadata
+            foreach (var input in _decoderSession.InputMetadata)
+            {
+                if (input.Key.StartsWith("past_key_values", StringComparison.OrdinalIgnoreCase))
+                {
+                    var dims = input.Value.Dimensions;
+                    _pastKeyValueInputs.Add((input.Key, dims));
+
+                    // Extract attention head info from first past_key_values tensor
+                    // Shape is typically [batch, num_heads, seq_len, head_dim]
+                    if (_numAttentionHeads == 0 && dims.Length >= 4)
+                    {
+                        _numAttentionHeads = dims[1] > 0 ? dims[1] : 8; // Default to 8 if dynamic
+                        _headDim = dims[3] > 0 ? dims[3] : 64; // Default to 64 if dynamic
+                    }
+                }
+            }
+
+            // Sort by name for consistent ordering
+            _pastKeyValueInputs.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
+        }
     }
 
     /// <summary>
@@ -80,6 +115,15 @@ internal sealed class WhisperDecoder
             string? detectedLanguage = null;
             int segmentId = 0;
 
+            // For merged models, we'll track KV cache state
+            Dictionary<string, DenseTensor<float>>? kvCache = null;
+
+            if (_isMergedModel)
+            {
+                // Initialize empty KV cache tensors
+                kvCache = CreateEmptyKvCache();
+            }
+
             // Autoregressive generation loop
             while (tokens.Count < _maxLength)
             {
@@ -91,12 +135,29 @@ internal sealed class WhisperDecoder
                     tokenArray.Select(t => (long)t).ToArray(),
                     [1, tokens.Count]);
 
-                // Run decoder
+                // Build inputs list
                 var inputs = new List<NamedOnnxValue>
                 {
                     NamedOnnxValue.CreateFromTensor(_actualTokenInputName, tokenTensor),
                     NamedOnnxValue.CreateFromTensor(_actualEncoderInputName, encoderTensor)
                 };
+
+                // Add merged model specific inputs
+                if (_isMergedModel && kvCache != null)
+                {
+                    // Add use_cache_branch = false (we're not using cache efficiently yet)
+                    var useCacheTensor = new DenseTensor<bool>(new[] { false }, new[] { 1 });
+                    inputs.Add(NamedOnnxValue.CreateFromTensor(UseCacheBranchName, useCacheTensor));
+
+                    // Add past_key_values tensors
+                    foreach (var (name, _) in _pastKeyValueInputs)
+                    {
+                        if (kvCache.TryGetValue(name, out var tensor))
+                        {
+                            inputs.Add(NamedOnnxValue.CreateFromTensor(name, tensor));
+                        }
+                    }
+                }
 
                 using var results = _decoderSession.Run(inputs);
                 var logits = results.First(r => r.Name == _actualLogitsOutputName).AsTensor<float>();
@@ -223,6 +284,27 @@ internal sealed class WhisperDecoder
                 TokenCount = tokens.Count - initialTokens.Length
             };
         }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Creates empty KV cache tensors for merged model initialization.
+    /// </summary>
+    private Dictionary<string, DenseTensor<float>> CreateEmptyKvCache()
+    {
+        var cache = new Dictionary<string, DenseTensor<float>>();
+
+        foreach (var (name, dims) in _pastKeyValueInputs)
+        {
+            // Create zero-sized tensor for initial state
+            // Shape: [batch=1, num_heads, seq_len=0, head_dim]
+            var numHeads = dims[1] > 0 ? dims[1] : _numAttentionHeads;
+            var headDim = dims[3] > 0 ? dims[3] : _headDim;
+
+            var tensor = new DenseTensor<float>([1, numHeads, 0, headDim]);
+            cache[name] = tensor;
+        }
+
+        return cache;
     }
 
     private static int ArgMax(float[] values)
