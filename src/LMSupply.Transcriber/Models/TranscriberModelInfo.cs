@@ -56,6 +56,11 @@ public sealed class TranscriberModelInfo
     public int NumMelBins { get; init; } = 80;
 
     /// <summary>
+    /// Gets or sets the hidden size (d_model) of the model.
+    /// </summary>
+    public int HiddenSize { get; init; } = 512;
+
+    /// <summary>
     /// Gets or sets the encoder ONNX file name.
     /// </summary>
     public string EncoderFile { get; init; } = "encoder_model.onnx";

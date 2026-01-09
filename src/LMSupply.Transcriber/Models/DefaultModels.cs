@@ -22,9 +22,11 @@ public static class DefaultModels
         MaxDurationSeconds = 30,
         SampleRate = 16000,
         NumMelBins = 80,
+        HiddenSize = 384,
         IsMultilingual = true,
         Description = "Whisper Tiny for ultra-fast transcription. Best for real-time applications.",
-        License = "MIT"
+        License = "MIT",
+        DecoderFile = "decoder_model_merged.onnx"
     };
 
     /// <summary>
@@ -43,9 +45,11 @@ public static class DefaultModels
         MaxDurationSeconds = 30,
         SampleRate = 16000,
         NumMelBins = 80,
+        HiddenSize = 512,
         IsMultilingual = true,
         Description = "Whisper Base for balanced speed and accuracy.",
-        License = "MIT"
+        License = "MIT",
+        DecoderFile = "decoder_model_merged.onnx"
     };
 
     /// <summary>
@@ -64,9 +68,11 @@ public static class DefaultModels
         MaxDurationSeconds = 30,
         SampleRate = 16000,
         NumMelBins = 80,
+        HiddenSize = 768,
         IsMultilingual = true,
         Description = "Whisper Small for higher accuracy transcription.",
-        License = "MIT"
+        License = "MIT",
+        DecoderFile = "decoder_model_merged.onnx"
     };
 
     /// <summary>
@@ -85,9 +91,11 @@ public static class DefaultModels
         MaxDurationSeconds = 30,
         SampleRate = 16000,
         NumMelBins = 80,
+        HiddenSize = 1024,
         IsMultilingual = true,
         Description = "Whisper Medium for high quality transcription.",
-        License = "MIT"
+        License = "MIT",
+        DecoderFile = "decoder_model_merged.onnx"
     };
 
     /// <summary>
@@ -106,9 +114,11 @@ public static class DefaultModels
         MaxDurationSeconds = 30,
         SampleRate = 16000,
         NumMelBins = 128, // Large V3 uses 128 mel bins
+        HiddenSize = 1280,
         IsMultilingual = true,
         Description = "Whisper Large V3 for highest quality transcription.",
-        License = "MIT"
+        License = "MIT",
+        DecoderFile = "decoder_model_merged.onnx"
     };
 
     /// <summary>
@@ -128,9 +138,11 @@ public static class DefaultModels
         MaxDurationSeconds = 30,
         SampleRate = 16000,
         NumMelBins = 128,
+        HiddenSize = 1280,
         IsMultilingual = true,
         Description = "Whisper Large V3 Turbo - 8x faster than V3 with near-equal quality.",
-        License = "MIT"
+        License = "MIT",
+        DecoderFile = "decoder_model_merged.onnx"
     };
 
     /// <summary>
@@ -150,10 +162,12 @@ public static class DefaultModels
         MaxDurationSeconds = 30,
         SampleRate = 16000,
         NumMelBins = 128,
+        HiddenSize = 1280,
         IsMultilingual = false,
         SupportedLanguages = ["en"],
         Description = "Distil-Whisper Large V3 - 6x faster distilled model for English.",
-        License = "MIT"
+        License = "MIT",
+        DecoderFile = "decoder_model_merged.onnx"
     };
 
     /// <summary>
@@ -172,10 +186,12 @@ public static class DefaultModels
         MaxDurationSeconds = 30,
         SampleRate = 16000,
         NumMelBins = 80,
+        HiddenSize = 512,
         IsMultilingual = false,
         SupportedLanguages = ["en"],
         Description = "Whisper Base optimized for English-only transcription.",
-        License = "MIT"
+        License = "MIT",
+        DecoderFile = "decoder_model_merged.onnx"
     };
 
     /// <summary>

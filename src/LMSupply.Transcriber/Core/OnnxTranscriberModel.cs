@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using LMSupply.Transcriber.Audio;
+using LMSupply.Transcriber.Decoding;
 using LMSupply.Transcriber.Models;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -17,7 +18,10 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
 
     private InferenceSession? _encoderSession;
     private InferenceSession? _decoderSession;
+    private WhisperTokenizer? _tokenizer;
+    private WhisperDecoder? _decoder;
     private TranscriberModelInfo? _modelInfo;
+    private string? _modelPath;
     private bool _isInitialized;
     private bool _isDisposed;
 
@@ -228,31 +232,30 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         }, cancellationToken);
     }
 
-    private Task<(string text, List<TranscriptionSegment> segments)> RunDecoderAsync(
+    private async Task<(string text, List<TranscriptionSegment> segments)> RunDecoderAsync(
         float[] encoderOutput,
         TranscribeOptions? options,
         CancellationToken cancellationToken)
     {
-        return Task.Run(() =>
+        if (_decoder == null)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            throw new InvalidOperationException("Decoder not initialized");
+        }
 
-            // Simplified greedy decoding
-            // In production, implement proper beam search and token decoding
+        // Get encoder output dimensions
+        // Whisper encoder output shape: [1, sequence_length, hidden_size]
+        // sequence_length = 1500 (for 30s audio), hidden_size = d_model from config
+        var hiddenSize = _modelInfo?.HiddenSize ?? 512; // Default for base model
+        var sequenceLength = encoderOutput.Length / hiddenSize;
 
-            var segments = new List<TranscriptionSegment>
-            {
-                new()
-                {
-                    Id = 0,
-                    Start = 0,
-                    End = 30,
-                    Text = "[Transcription placeholder - implement proper decoder]"
-                }
-            };
+        var result = await _decoder.DecodeAsync(
+            encoderOutput,
+            sequenceLength,
+            hiddenSize,
+            options,
+            cancellationToken);
 
-            return ("[Transcription placeholder - implement proper decoder]", segments);
-        }, cancellationToken);
+        return (result.Text, result.Segments);
     }
 
     private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
@@ -304,6 +307,16 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
                     cancellationToken: cancellationToken);
             }
 
+            // Store model path and load tokenizer
+            _modelPath = modelPath;
+            _tokenizer = await WhisperTokenizer.LoadAsync(modelPath, cancellationToken);
+
+            // Create decoder if decoder session is available
+            if (_decoderSession != null)
+            {
+                _decoder = new WhisperDecoder(_decoderSession, _tokenizer);
+            }
+
             _isInitialized = true;
         }
         finally
@@ -333,7 +346,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
 
         var modelPath = await downloader.DownloadModelAsync(
             _modelInfo.Id,
-            files: [_modelInfo.EncoderFile, _modelInfo.DecoderFile],
+            files: [_modelInfo.EncoderFile, _modelInfo.DecoderFile, "vocab.json"],
             subfolder: "onnx",
             cancellationToken: cancellationToken);
 
@@ -356,6 +369,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
 
         _encoderSession?.Dispose();
         _decoderSession?.Dispose();
+        _tokenizer?.Dispose();
         _lock.Dispose();
         return ValueTask.CompletedTask;
     }
