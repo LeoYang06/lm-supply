@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using NAudio.Wave;
 
 namespace LMSupply.Transcriber.Audio;
@@ -173,11 +174,14 @@ internal static class AudioProcessor
 
         // Normalize
         var maxVal = logMelSpec.Max();
+        var minValBefore = logMelSpec.Min();
         for (int i = 0; i < logMelSpec.Length; i++)
         {
             logMelSpec[i] = MathF.Max(logMelSpec[i], maxVal - 8.0f);
             logMelSpec[i] = (logMelSpec[i] + 4.0f) / 4.0f;
         }
+
+        // Debug: Log mel spectrogram statistics
 
         return logMelSpec;
     }
@@ -207,6 +211,7 @@ internal static class AudioProcessor
                     real += frameData[n] * MathF.Cos(angle);
                     imag += frameData[n] * MathF.Sin(angle);
                 }
+                // Whisper expects power spectrum: |STFT|² = magnitude squared
                 stft[k * numFrames + frame] = real * real + imag * imag;
             }
         }
@@ -257,6 +262,18 @@ internal static class AudioProcessor
                 {
                     melFilters[m, k] = (melPoints[m + 2] - fftFreqs[k]) / (melPoints[m + 2] - melPoints[m + 1]);
                 }
+            }
+        }
+
+        // Apply Slaney normalization (librosa's default for Whisper compatibility)
+        // This normalizes each filter to have approximately constant energy per channel
+        // Formula: enorm = 2.0 / (mel_f[m+2] - mel_f[m])
+        for (int m = 0; m < numMelBins; m++)
+        {
+            float enorm = 2.0f / (melPoints[m + 2] - melPoints[m]);
+            for (int k = 0; k < fftFreqs.Length; k++)
+            {
+                melFilters[m, k] *= enorm;
             }
         }
 

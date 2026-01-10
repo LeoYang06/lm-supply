@@ -162,14 +162,50 @@ internal sealed class WhisperDecoder
                 using var results = _decoderSession.Run(inputs);
                 var logits = results.First(r => r.Name == _actualLogitsOutputName).AsTensor<float>();
 
-                // Get logits for last position
-                var vocabSize = _tokenizer.VocabSize;
-                var lastPosition = tokens.Count - 1;
-                var lastLogits = new float[vocabSize];
+                // Get logits for last position - use actual model vocab size, not tokenizer
+                int vocabSize;
+                float[] lastLogits;
 
-                for (int i = 0; i < vocabSize; i++)
+                // Handle different logits shapes:
+                // - [batch, seq_len, vocab_size] - standard transformer output
+                // - [batch, vocab_size] - optimized decoder that only outputs last position
+                if (logits.Dimensions.Length == 3)
                 {
-                    lastLogits[i] = logits[0, lastPosition, i];
+                    vocabSize = (int)logits.Dimensions[2];
+                    lastLogits = new float[vocabSize];
+                    var lastPosition = (int)logits.Dimensions[1] - 1;
+                    for (int i = 0; i < vocabSize; i++)
+                    {
+                        lastLogits[i] = logits[0, lastPosition, i];
+                    }
+                }
+                else if (logits.Dimensions.Length == 2)
+                {
+                    vocabSize = (int)logits.Dimensions[1];
+                    lastLogits = new float[vocabSize];
+                    for (int i = 0; i < vocabSize; i++)
+                    {
+                        lastLogits[i] = logits[0, i];
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Unexpected logits shape: [{string.Join(", ", logits.Dimensions.ToArray())}]");
+                }
+
+                // Apply repetition penalty to discourage repeating tokens
+                const float repetitionPenalty = 1.2f;
+                var recentTokens = tokens.Skip(Math.Max(0, tokens.Count - 10)).ToHashSet();
+                for (int i = 0; i < lastLogits.Length; i++)
+                {
+                    if (recentTokens.Contains(i))
+                    {
+                        // Penalize recently used tokens
+                        if (lastLogits[i] > 0)
+                            lastLogits[i] /= repetitionPenalty;
+                        else
+                            lastLogits[i] *= repetitionPenalty;
+                    }
                 }
 
                 // Apply temperature if specified
@@ -178,6 +214,21 @@ internal sealed class WhisperDecoder
                     for (int i = 0; i < lastLogits.Length; i++)
                     {
                         lastLogits[i] /= options.Temperature;
+                    }
+                }
+
+                // Suppress specific tokens that cause hallucination loops
+                if (tokens.Count > initialTokens.Length + 3)
+                {
+                    var last3 = tokens.Skip(tokens.Count - 3).ToArray();
+                    if (last3[0] == last3[1] && last3[1] == last3[2])
+                    {
+                        // Three consecutive same tokens - heavily suppress this token
+                        var repeatedToken = last3[0];
+                        if (repeatedToken < lastLogits.Length)
+                        {
+                            lastLogits[repeatedToken] = float.NegativeInfinity;
+                        }
                     }
                 }
 

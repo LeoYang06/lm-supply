@@ -269,6 +269,32 @@ public sealed class ModelManagerService : IAsyncDisposable
     /// <summary>
     /// 모든 모델 언로드
     /// </summary>
+
+    /// <summary>
+    /// Marks a model as in-use to prevent cleanup during active operations.
+    /// Call EndUse when the operation completes.
+    /// </summary>
+    public void BeginUse(string key)
+    {
+        if (_loadedModels.TryGetValue(key, out var entry))
+        {
+            Interlocked.Increment(ref entry.ActiveUsageCount);
+            entry.LastUsedAt = DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// Marks a model as no longer in-use, allowing cleanup if idle.
+    /// </summary>
+    public void EndUse(string key)
+    {
+        if (_loadedModels.TryGetValue(key, out var entry))
+        {
+            Interlocked.Decrement(ref entry.ActiveUsageCount);
+            entry.LastUsedAt = DateTime.UtcNow;
+        }
+    }
+
     public async Task UnloadAllAsync()
     {
         var entries = _loadedModels.Values.ToList();
@@ -356,7 +382,7 @@ public sealed class ModelManagerService : IAsyncDisposable
     {
         var threshold = DateTime.UtcNow - _idleTimeout;
         var idleModels = _loadedModels.Values
-            .Where(e => e.LastUsedAt < threshold)
+            .Where(e => !e.IsInUse && e.LastUsedAt < threshold)
             .ToList();
 
         foreach (var entry in idleModels)
@@ -388,5 +414,8 @@ public sealed class ModelManagerService : IAsyncDisposable
         public required string ModelId { get; init; }
         public required DateTime LoadedAt { get; init; }
         public DateTime LastUsedAt { get; set; }
+        public int ActiveUsageCount;
+        
+        public bool IsInUse => ActiveUsageCount > 0;
     }
 }

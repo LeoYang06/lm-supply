@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using LMSupply.Inference;
 using LMSupply.Transcriber.Audio;
 using LMSupply.Transcriber.Decoding;
 using LMSupply.Transcriber.Models;
@@ -18,6 +19,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
 
     private InferenceSession? _encoderSession;
     private InferenceSession? _decoderSession;
+    private SessionCreationResult? _encoderSessionInfo;
     private WhisperTokenizer? _tokenizer;
     private WhisperDecoder? _decoder;
     private TranscriberModelInfo? _modelInfo;
@@ -29,6 +31,21 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
     public string ModelId => _modelInfo?.Id ?? _options.ModelId;
 
     public string? Language => null; // Auto-detected per transcription
+
+    /// <summary>
+    /// Gets whether GPU acceleration is actually being used for inference.
+    /// </summary>
+    public bool IsGpuActive => _encoderSessionInfo?.IsGpuActive ?? false;
+
+    /// <summary>
+    /// Gets the list of active execution providers for the encoder session.
+    /// </summary>
+    public IReadOnlyList<string> ActiveProviders => _encoderSessionInfo?.ActiveProviders ?? [];
+
+    /// <summary>
+    /// Gets the execution provider that was requested.
+    /// </summary>
+    public ExecutionProvider RequestedProvider => _encoderSessionInfo?.RequestedProvider ?? ExecutionProvider.Auto;
 
     public OnnxTranscriberModel(TranscriberOptions options)
     {
@@ -188,6 +205,10 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         await _lock.WaitAsync(cancellationToken);
         try
         {
+            // Log language settings for debugging
+            Debug.WriteLine($"[OnnxTranscriberModel] Transcribing chunk - Language: {options?.Language ?? "auto-detect"}, " +
+                $"WordTimestamps: {options?.WordTimestamps ?? false}");
+
             // Compute mel spectrogram
             var numMelBins = _modelInfo?.NumMelBins ?? 80;
             var melSpec = AudioProcessor.ComputeLogMelSpectrogram(samples, numMelBins);
@@ -198,10 +219,14 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             // Run decoder with greedy decoding
             var (text, segments) = await RunDecoderAsync(encoderOutput, options, cancellationToken);
 
+            var resultLanguage = options?.Language ?? "en"; // TODO: Implement language detection
+            Debug.WriteLine($"[OnnxTranscriberModel] Transcription result - Language: {resultLanguage}, " +
+                $"Text length: {text.Length}, Segments: {segments.Count}");
+
             return new TranscriptionResult
             {
                 Text = text,
-                Language = options?.Language ?? "en", // TODO: Implement language detection
+                Language = resultLanguage,
                 LanguageProbability = null,
                 Segments = segments
             };
@@ -283,18 +308,29 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             // Download model if needed
             var modelPath = await ResolveModelPathAsync(cancellationToken);
 
-            // Load encoder
+            // Load encoder with GPU provider verification
             var encoderPath = Path.Combine(modelPath, _modelInfo!.EncoderFile);
             if (!File.Exists(encoderPath))
             {
                 throw new FileNotFoundException($"Encoder model not found: {encoderPath}");
             }
 
-            _encoderSession = await OnnxSessionFactory.CreateAsync(
+            _encoderSessionInfo = await OnnxSessionFactory.CreateWithInfoAsync(
                 encoderPath,
                 _options.Provider,
                 ConfigureSessionOptions,
                 cancellationToken: cancellationToken);
+            _encoderSession = _encoderSessionInfo.Session;
+
+            // Log GPU provider status
+            Debug.WriteLine($"[OnnxTranscriberModel] Encoder loaded - Requested: {_encoderSessionInfo.RequestedProvider}, " +
+                $"Active providers: [{string.Join(", ", _encoderSessionInfo.ActiveProviders)}], GPU active: {_encoderSessionInfo.IsGpuActive}");
+
+            if (_options.Provider != ExecutionProvider.Cpu && !_encoderSessionInfo.IsGpuActive)
+            {
+                Debug.WriteLine("[OnnxTranscriberModel] WARNING: GPU provider was requested but only CPU is active. " +
+                    "Check CUDA/DirectML installation and GPU availability.");
+            }
 
             // Load decoder if available
             var decoderPath = Path.Combine(modelPath, _modelInfo.DecoderFile);
@@ -305,6 +341,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
                     _options.Provider,
                     ConfigureSessionOptions,
                     cancellationToken: cancellationToken);
+                Debug.WriteLine($"[OnnxTranscriberModel] Decoder loaded from: {decoderPath}");
             }
 
             // Store model path and load tokenizer

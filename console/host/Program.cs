@@ -7,6 +7,12 @@ using LMSupply.Console.Host.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Kestrel 설정 - 대용량 파일 업로드 허용 (최대 500MB)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 500 * 1024 * 1024; // 500MB
+});
+
 // JSON 직렬화 설정
 builder.Services.ConfigureHttpJsonOptions(options =>
 {

@@ -1,6 +1,7 @@
 using LMSupply.Console.Host.Infrastructure;
 using LMSupply.Console.Host.Models.OpenAI;
 using LMSupply.Console.Host.Services;
+using LMSupply.Transcriber;
 
 namespace LMSupply.Console.Host.Endpoints;
 
@@ -34,43 +35,58 @@ public static class TranscribeEndpoints
                 var language = form["language"].FirstOrDefault();
                 var responseFormat = form["response_format"].FirstOrDefault() ?? "json";
 
+                var modelKey = $"transcriber:{model}";
                 var transcriber = await manager.GetTranscriberAsync(model, ct);
-
-                using var stream = file.OpenReadStream();
-                using var memoryStream = new MemoryStream();
-                await stream.CopyToAsync(memoryStream, ct);
-
-                var result = await transcriber.TranscribeAsync(memoryStream.ToArray(), cancellationToken: ct);
-
-                // Simple JSON format (default)
-                if (responseFormat == "json" || responseFormat == "text")
+                
+                // Mark model as in-use to prevent cleanup during long transcription
+                manager.BeginUse(modelKey);
+                try
                 {
-                    if (responseFormat == "text")
+                    using var stream = file.OpenReadStream();
+                    using var memoryStream = new MemoryStream();
+                    await stream.CopyToAsync(memoryStream, ct);
+
+                    // Create transcribe options with language if specified
+                    var options = !string.IsNullOrEmpty(language)
+                        ? new TranscribeOptions { Language = language }
+                        : null;
+
+                    var result = await transcriber.TranscribeAsync(memoryStream.ToArray(), options, ct);
+
+                    // Simple JSON format (default)
+                    if (responseFormat == "json" || responseFormat == "text")
                     {
-                        return Results.Text(result.Text);
+                        if (responseFormat == "text")
+                        {
+                            return Results.Text(result.Text);
+                        }
+
+                        return Results.Ok(new TranscriptionResponse
+                        {
+                            Text = result.Text
+                        });
                     }
 
-                    return Results.Ok(new TranscriptionResponse
+                    // Verbose JSON format
+                    return Results.Ok(new VerboseTranscriptionResponse
                     {
-                        Text = result.Text
+                        Task = "transcribe",
+                        Language = result.Language ?? "unknown",
+                        Duration = (float)(result.DurationSeconds ?? 0),
+                        Text = result.Text,
+                        Segments = result.Segments?.Select((s, i) => new Models.OpenAI.TranscriptionSegment
+                        {
+                            Id = i,
+                            Start = (float)s.Start,
+                            End = (float)s.End,
+                            Text = s.Text
+                        }).ToList()
                     });
                 }
-
-                // Verbose JSON format
-                return Results.Ok(new VerboseTranscriptionResponse
+                finally
                 {
-                    Task = "transcribe",
-                    Language = result.Language ?? "unknown",
-                    Duration = (float)(result.DurationSeconds ?? 0),
-                    Text = result.Text,
-                    Segments = result.Segments?.Select((s, i) => new TranscriptionSegment
-                    {
-                        Id = i,
-                        Start = (float)s.Start,
-                        End = (float)s.End,
-                        Text = s.Text
-                    }).ToList()
-                });
+                    manager.EndUse(modelKey);
+                }
             }
             catch (Exception ex)
             {

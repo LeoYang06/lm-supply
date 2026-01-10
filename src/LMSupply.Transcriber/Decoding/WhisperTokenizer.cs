@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -9,6 +10,37 @@ namespace LMSupply.Transcriber.Decoding;
 /// </summary>
 internal sealed class WhisperTokenizer : IDisposable
 {
+    /// <summary>
+    /// Supported Whisper language codes mapped to ISO 639-1 codes.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> SupportedLanguages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["en"] = "english", ["zh"] = "chinese", ["de"] = "german", ["es"] = "spanish",
+        ["ru"] = "russian", ["ko"] = "korean", ["fr"] = "french", ["ja"] = "japanese",
+        ["pt"] = "portuguese", ["tr"] = "turkish", ["pl"] = "polish", ["ca"] = "catalan",
+        ["nl"] = "dutch", ["ar"] = "arabic", ["sv"] = "swedish", ["it"] = "italian",
+        ["id"] = "indonesian", ["hi"] = "hindi", ["fi"] = "finnish", ["vi"] = "vietnamese",
+        ["he"] = "hebrew", ["uk"] = "ukrainian", ["el"] = "greek", ["ms"] = "malay",
+        ["cs"] = "czech", ["ro"] = "romanian", ["da"] = "danish", ["hu"] = "hungarian",
+        ["ta"] = "tamil", ["no"] = "norwegian", ["th"] = "thai", ["ur"] = "urdu",
+        ["hr"] = "croatian", ["bg"] = "bulgarian", ["lt"] = "lithuanian", ["la"] = "latin",
+        ["mi"] = "maori", ["ml"] = "malayalam", ["cy"] = "welsh", ["sk"] = "slovak",
+        ["te"] = "telugu", ["fa"] = "persian", ["lv"] = "latvian", ["bn"] = "bengali",
+        ["sr"] = "serbian", ["az"] = "azerbaijani", ["sl"] = "slovenian", ["kn"] = "kannada",
+        ["et"] = "estonian", ["mk"] = "macedonian", ["br"] = "breton", ["eu"] = "basque",
+        ["is"] = "icelandic", ["hy"] = "armenian", ["ne"] = "nepali", ["mn"] = "mongolian",
+        ["bs"] = "bosnian", ["kk"] = "kazakh", ["sq"] = "albanian", ["sw"] = "swahili",
+        ["gl"] = "galician", ["mr"] = "marathi", ["pa"] = "punjabi", ["si"] = "sinhala",
+        ["km"] = "khmer", ["sn"] = "shona", ["yo"] = "yoruba", ["so"] = "somali",
+        ["af"] = "afrikaans", ["oc"] = "occitan", ["ka"] = "georgian", ["be"] = "belarusian",
+        ["tg"] = "tajik", ["sd"] = "sindhi", ["gu"] = "gujarati", ["am"] = "amharic",
+        ["yi"] = "yiddish", ["lo"] = "lao", ["uz"] = "uzbek", ["fo"] = "faroese",
+        ["ht"] = "haitian creole", ["ps"] = "pashto", ["tk"] = "turkmen", ["nn"] = "nynorsk",
+        ["mt"] = "maltese", ["sa"] = "sanskrit", ["lb"] = "luxembourgish", ["my"] = "myanmar",
+        ["bo"] = "tibetan", ["tl"] = "tagalog", ["mg"] = "malagasy", ["as"] = "assamese",
+        ["tt"] = "tatar", ["haw"] = "hawaiian", ["ln"] = "lingala", ["ha"] = "hausa",
+        ["ba"] = "bashkir", ["jw"] = "javanese", ["su"] = "sundanese", ["yue"] = "cantonese"
+    };
     private readonly Dictionary<int, string> _idToToken;
     private readonly Dictionary<string, int> _tokenToId;
     private readonly Dictionary<string, string> _bytesToUnicode;
@@ -151,14 +183,15 @@ internal sealed class WhisperTokenizer : IDisposable
         if (!IsLanguageToken(tokenId))
             return null;
 
-        // Language tokens are formatted as <|xx|> in vocab
-        if (_idToToken.TryGetValue(tokenId, out var token))
+        // Language tokens are computed as LanguageTokenStart + index
+        // Reverse the calculation to get the language code
+        var index = tokenId - LanguageTokenStart;
+        var languageCodes = SupportedLanguages.Keys.ToList();
+        
+        if (index >= 0 && index < languageCodes.Count)
         {
-            // Extract language code from <|xx|>
-            if (token.StartsWith("<|") && token.EndsWith("|>") && token.Length >= 5)
-            {
-                return token[2..^2];
-            }
+            var lang = languageCodes[index];
+            return lang;
         }
 
         return null;
@@ -169,13 +202,26 @@ internal sealed class WhisperTokenizer : IDisposable
     /// </summary>
     public int? GetLanguageToken(string languageCode)
     {
-        var token = $"<|{languageCode}|>";
-        return GetTokenId(token);
+        // Language tokens are NOT in vocab.json - they're computed as offsets from LanguageTokenStart
+        // The order matches the SupportedLanguages dictionary order
+        var languageCodes = SupportedLanguages.Keys.ToList();
+        var index = languageCodes.FindIndex(c => c.Equals(languageCode, StringComparison.OrdinalIgnoreCase));
+        
+        if (index >= 0)
+        {
+            var token = LanguageTokenStart + index;
+            return token;
+        }
+        
+        return null;
     }
 
     /// <summary>
     /// Gets the SOT (start of transcript) sequence for transcription.
     /// </summary>
+    /// <param name="language">ISO 639-1 language code (e.g., "en", "zh", "ja").</param>
+    /// <param name="timestamps">Whether to include timestamps in output.</param>
+    /// <returns>Array of token IDs for the SOT sequence.</returns>
     public int[] GetSotSequence(string? language = null, bool timestamps = false)
     {
         var tokens = new List<int> { StartOfTranscriptToken };
@@ -183,11 +229,24 @@ internal sealed class WhisperTokenizer : IDisposable
         // Add language token
         if (language != null)
         {
-            var langToken = GetLanguageToken(language);
+            // Normalize language code (lowercase, handle common aliases)
+            var normalizedLang = NormalizeLanguageCode(language);
+            var langToken = GetLanguageToken(normalizedLang);
+
             if (langToken.HasValue)
             {
                 tokens.Add(langToken.Value);
+                Debug.WriteLine($"[WhisperTokenizer] Using language: {normalizedLang} (token: {langToken.Value})");
             }
+            else
+            {
+                Debug.WriteLine($"[WhisperTokenizer] Warning: Language '{language}' not found in vocabulary. " +
+                    $"Supported codes: {string.Join(", ", SupportedLanguages.Keys.Take(10))}...");
+            }
+        }
+        else
+        {
+            Debug.WriteLine("[WhisperTokenizer] No language specified, model will auto-detect language.");
         }
 
         // Add task token (transcribe)
@@ -199,7 +258,44 @@ internal sealed class WhisperTokenizer : IDisposable
             tokens.Add(NoTimestampsToken);
         }
 
+        Debug.WriteLine($"[WhisperTokenizer] SOT sequence: [{string.Join(", ", tokens)}]");
         return [.. tokens];
+    }
+
+    /// <summary>
+    /// Normalizes a language code to the format expected by Whisper.
+    /// </summary>
+    private static string NormalizeLanguageCode(string language)
+    {
+        // Handle common aliases and normalize to lowercase
+        var normalized = language.ToLowerInvariant().Trim();
+
+        // Handle full language names -> ISO codes
+        return normalized switch
+        {
+            "chinese" or "mandarin" => "zh",
+            "english" => "en",
+            "japanese" => "ja",
+            "korean" => "ko",
+            "spanish" => "es",
+            "french" => "fr",
+            "german" => "de",
+            "italian" => "it",
+            "portuguese" => "pt",
+            "russian" => "ru",
+            "arabic" => "ar",
+            "hindi" => "hi",
+            "turkish" => "tr",
+            "vietnamese" => "vi",
+            "thai" => "th",
+            "indonesian" => "id",
+            "dutch" => "nl",
+            "polish" => "pl",
+            "swedish" => "sv",
+            "hebrew" => "he",
+            "cantonese" => "yue",
+            _ => normalized
+        };
     }
 
     // GPT-2 uses a specific byte-to-unicode mapping for BPE tokens
