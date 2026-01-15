@@ -261,25 +261,38 @@ public static class OnnxSessionFactory
         if (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
             return false;
 
-        // On Windows, check for CUDA runtime DLLs in PATH or system
-        // These are required for ONNX Runtime CUDA provider to work
+        // ONNX Runtime CUDA provider requires ALL of these libraries
+        // Check CUDA 12 first, then CUDA 11
         var cuda12Libs = new[] { "cublas64_12", "cublasLt64_12" };
         var cuda11Libs = new[] { "cublas64_11", "cublasLt64_11" };
 
-        foreach (var lib in cuda12Libs.Concat(cuda11Libs))
+        // All CUDA 12 libraries must be available
+        if (AreAllLibrariesAvailable(cuda12Libs))
+            return true;
+
+        // Or all CUDA 11 libraries must be available
+        if (AreAllLibrariesAvailable(cuda11Libs))
+            return true;
+
+        return false;
+    }
+
+    private static bool AreAllLibrariesAvailable(string[] libs)
+    {
+        foreach (var lib in libs)
         {
             try
             {
-                if (System.Runtime.InteropServices.NativeLibrary.TryLoad(lib, out var handle))
-                {
-                    System.Runtime.InteropServices.NativeLibrary.Free(handle);
-                    return true;
-                }
+                if (!System.Runtime.InteropServices.NativeLibrary.TryLoad(lib, out var handle))
+                    return false;
+                System.Runtime.InteropServices.NativeLibrary.Free(handle);
             }
-            catch { }
+            catch
+            {
+                return false;
+            }
         }
-
-        return false;
+        return true;
     }
 
     /// <summary>
