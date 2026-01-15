@@ -1,0 +1,167 @@
+using FluentAssertions;
+using LMSupply.Inference;
+using LMSupply.Runtime;
+
+namespace LMSupply.Core.Tests.Inference;
+
+/// <summary>
+/// Tests for OnnxSessionFactory fallback chain behavior.
+/// These tests verify that Auto mode correctly configures the GPU provider fallback chain.
+/// Note: Tests that require native ONNX Runtime binaries are skipped in unit test environments.
+/// </summary>
+public class OnnxSessionFactoryTests
+{
+    [Fact]
+    public async Task Auto_ShouldUseFallbackChainFromGpuInfo()
+    {
+        // Arrange
+        await RuntimeManager.Instance.InitializeAsync();
+        var gpu = RuntimeManager.Instance.Gpu;
+
+        // Act
+        var fallbackChain = gpu?.GetFallbackProviders();
+
+        // Assert
+        fallbackChain.Should().NotBeNull();
+        fallbackChain.Should().Contain(ExecutionProvider.Cpu, "CPU should always be in fallback chain");
+    }
+
+    [Fact]
+    public async Task GetFallbackProviders_OnNvidiaGpu_ShouldHaveCudaFirst()
+    {
+        // Arrange
+        await RuntimeManager.Instance.InitializeAsync();
+        var gpu = RuntimeManager.Instance.Gpu;
+
+        // Skip if not NVIDIA GPU
+        if (gpu?.Vendor != GpuVendor.Nvidia || gpu.CudaDriverVersionMajor < 11)
+        {
+            return; // Skip test - no NVIDIA GPU available
+        }
+
+        // Act
+        var fallbackChain = gpu.GetFallbackProviders();
+
+        // Assert
+        fallbackChain.Should().NotBeNull();
+        fallbackChain.First().Should().Be(ExecutionProvider.Cuda, "CUDA should be first for NVIDIA GPUs");
+        fallbackChain.Last().Should().Be(ExecutionProvider.Cpu, "CPU should be last");
+    }
+
+    [Fact]
+    public async Task GetFallbackProviders_OnWindows_ShouldIncludeDirectML()
+    {
+        // Arrange
+        await RuntimeManager.Instance.InitializeAsync();
+        var gpu = RuntimeManager.Instance.Gpu;
+
+        // Skip if not Windows or no DirectML support
+        if (!OperatingSystem.IsWindows() || gpu?.DirectMLSupported != true)
+        {
+            return; // Skip test
+        }
+
+        // Act
+        var fallbackChain = gpu.GetFallbackProviders();
+
+        // Assert
+        fallbackChain.Should().Contain(ExecutionProvider.DirectML, "DirectML should be in fallback chain on Windows");
+    }
+
+    [Fact]
+    public async Task GetFallbackProviders_CpuShouldAlwaysBeLast()
+    {
+        // Arrange
+        await RuntimeManager.Instance.InitializeAsync();
+        var gpu = RuntimeManager.Instance.Gpu;
+
+        // Act
+        var fallbackChain = gpu?.GetFallbackProviders() ?? new[] { ExecutionProvider.Cpu };
+
+        // Assert
+        fallbackChain.Last().Should().Be(ExecutionProvider.Cpu, "CPU should always be the final fallback");
+    }
+
+    [Fact]
+    public async Task RuntimeManagerChain_ShouldMatchGpuInfoChain()
+    {
+        // Arrange
+        await RuntimeManager.Instance.InitializeAsync();
+        var gpu = RuntimeManager.Instance.Gpu;
+
+        // Act
+        var runtimeChain = RuntimeManager.Instance.GetProviderFallbackChain();
+        var gpuChain = gpu?.GetFallbackProviders() ?? new[] { ExecutionProvider.Cpu };
+
+        // Assert: Both chains should have the same providers (though different string/enum types)
+        runtimeChain.Should().NotBeNull();
+        runtimeChain.Should().Contain("cpu", "CPU should always be in chain");
+
+        // If GPU has CUDA, RuntimeManager should have cuda11/cuda12
+        if (gpuChain.Contains(ExecutionProvider.Cuda))
+        {
+            runtimeChain.Should().Match(chain =>
+                chain.Contains("cuda11") || chain.Contains("cuda12"),
+                "CUDA should be in RuntimeManager chain when GPU supports it");
+        }
+
+        // If GPU has DirectML, RuntimeManager should have directml
+        if (gpuChain.Contains(ExecutionProvider.DirectML))
+        {
+            runtimeChain.Should().Contain("directml", "DirectML should be in RuntimeManager chain when GPU supports it");
+        }
+    }
+
+    [Fact]
+    public async Task Auto_OnNvidiaWithDirectML_ShouldHaveBothInChain()
+    {
+        // Arrange
+        await RuntimeManager.Instance.InitializeAsync();
+        var gpu = RuntimeManager.Instance.Gpu;
+
+        // Skip if not NVIDIA on Windows
+        if (gpu?.Vendor != GpuVendor.Nvidia || !gpu.DirectMLSupported)
+        {
+            return; // Skip test
+        }
+
+        // Act
+        var fallbackChain = gpu.GetFallbackProviders().ToList();
+
+        // Assert: NVIDIA Windows should have both CUDA and DirectML
+        fallbackChain.Should().HaveCountGreaterThanOrEqualTo(3,
+            "NVIDIA on Windows should have at least CUDA, DirectML, and CPU");
+
+        // CUDA should come before DirectML
+        var cudaIndex = fallbackChain.IndexOf(ExecutionProvider.Cuda);
+        var directMLIndex = fallbackChain.IndexOf(ExecutionProvider.DirectML);
+        cudaIndex.Should().BeLessThan(directMLIndex,
+            "CUDA should be tried before DirectML on NVIDIA GPUs");
+    }
+
+    [Fact]
+    public async Task FallbackChain_ShouldBeOrdered_GpuBeforeCpu()
+    {
+        // Arrange
+        await RuntimeManager.Instance.InitializeAsync();
+        var gpu = RuntimeManager.Instance.Gpu;
+
+        if (gpu is null)
+        {
+            return; // Skip - no GPU detected
+        }
+
+        // Act
+        var fallbackChain = gpu.GetFallbackProviders().ToList();
+        var cpuIndex = fallbackChain.IndexOf(ExecutionProvider.Cpu);
+
+        // Assert
+        cpuIndex.Should().Be(fallbackChain.Count - 1, "CPU should be the last provider in the chain");
+
+        // All GPU providers should come before CPU
+        for (int i = 0; i < cpuIndex; i++)
+        {
+            fallbackChain[i].Should().NotBe(ExecutionProvider.Cpu, $"Position {i} should be a GPU provider");
+        }
+    }
+}

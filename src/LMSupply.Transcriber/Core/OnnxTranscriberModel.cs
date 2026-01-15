@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using LMSupply.Core.Download;
+using LMSupply.Download;
 using LMSupply.Inference;
 using LMSupply.Transcriber.Audio;
 using LMSupply.Transcriber.Decoding;
@@ -385,14 +387,19 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             return parentDir;
         }
 
-        // Download from HuggingFace
+        // Download from HuggingFace using discovery for complete file set
         var cacheDir = _options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
         using var downloader = new HuggingFaceDownloader(cacheDir);
 
-        var modelPath = await downloader.DownloadModelAsync(
+        // Use discovery-based download to automatically find all model files
+        // including external data files (*.onnx_data) for large models
+        var (modelPath, _) = await downloader.DownloadWithDiscoveryAsync(
             _modelInfo.Id,
-            files: [_modelInfo.EncoderFile, _modelInfo.DecoderFile, "vocab.json"],
-            subfolder: "onnx",
+            preferences: new ModelPreferences
+            {
+                // Prefer onnx subfolder for Whisper models
+                PreferredSubfolder = "onnx"
+            },
             cancellationToken: cancellationToken);
 
         return modelPath;

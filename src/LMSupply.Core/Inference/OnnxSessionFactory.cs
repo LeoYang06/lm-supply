@@ -45,6 +45,7 @@ public static class OnnxSessionFactory
     /// <summary>
     /// Creates an ONNX Runtime inference session asynchronously, ensuring runtime binaries are available.
     /// This is the recommended method as it downloads required binaries on first use.
+    /// When provider is Auto, uses fallback chain: CUDA → DirectML → CoreML → CPU.
     /// </summary>
     /// <param name="modelPath">Path to the ONNX model file.</param>
     /// <param name="provider">The execution provider to use.</param>
@@ -59,37 +60,15 @@ public static class OnnxSessionFactory
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        // Ensure runtime binaries are available
-        await RuntimeManager.Instance.InitializeAsync(cancellationToken);
-
-        // Determine the actual provider to use
-        var actualProvider = provider == ExecutionProvider.Auto
-            ? RuntimeManager.Instance.RecommendedProvider
-            : provider;
-
-        // Get the provider string for binary download
-        var providerString = actualProvider switch
-        {
-            ExecutionProvider.Cuda => RuntimeManager.Instance.GetDefaultProvider(), // cuda11 or cuda12
-            ExecutionProvider.DirectML => "directml",
-            ExecutionProvider.CoreML => "cpu", // CoreML uses CPU binaries with framework
-            _ => "cpu"
-        };
-
-        // Download runtime binaries if needed
-        await RuntimeManager.Instance.EnsureRuntimeAsync(
-            "onnxruntime",
-            provider: providerString,
-            progress: progress,
-            cancellationToken: cancellationToken);
-
-        // Create session using sync method (binaries now available)
-        return Create(modelPath, actualProvider, configureOptions);
+        // Use CreateWithInfoAsync which handles the fallback chain and return just the session
+        var result = await CreateWithInfoAsync(modelPath, provider, configureOptions, progress, cancellationToken);
+        return result.Session;
     }
 
     /// <summary>
     /// Creates an ONNX Runtime inference session with detailed information about active providers.
     /// Use this when you need to verify GPU acceleration is actually working.
+    /// When provider is Auto, uses fallback chain: CUDA → DirectML → CoreML → CPU.
     /// </summary>
     /// <param name="modelPath">Path to the ONNX model file.</param>
     /// <param name="provider">The execution provider to use.</param>
@@ -107,13 +86,14 @@ public static class OnnxSessionFactory
         // Ensure runtime binaries are available
         await RuntimeManager.Instance.InitializeAsync(cancellationToken);
 
-        // Determine the actual provider to use
-        var actualProvider = provider == ExecutionProvider.Auto
-            ? RuntimeManager.Instance.RecommendedProvider
-            : provider;
+        if (provider == ExecutionProvider.Auto)
+        {
+            // Use fallback chain: CUDA → DirectML → CoreML → CPU
+            return await CreateWithFallbackChainAsync(modelPath, configureOptions, progress, cancellationToken);
+        }
 
-        // Get the provider string for binary download
-        var providerString = actualProvider switch
+        // Explicit provider specified - use single provider with CPU fallback
+        var providerString = provider switch
         {
             ExecutionProvider.Cuda => RuntimeManager.Instance.GetDefaultProvider(),
             ExecutionProvider.DirectML => "directml",
@@ -129,11 +109,11 @@ public static class OnnxSessionFactory
             cancellationToken: cancellationToken);
 
         // Create session and get active providers
-        var session = Create(modelPath, actualProvider, configureOptions);
+        var session = Create(modelPath, provider, configureOptions);
         var activeProviders = GetActiveProviders(session);
 
         // Log warning if GPU was requested but not active
-        var isGpuRequested = actualProvider is ExecutionProvider.Cuda or ExecutionProvider.DirectML or ExecutionProvider.CoreML;
+        var isGpuRequested = provider is ExecutionProvider.Cuda or ExecutionProvider.DirectML or ExecutionProvider.CoreML;
         var hasGpuProvider = activeProviders.Any(p =>
             p.Contains("CUDA", StringComparison.OrdinalIgnoreCase) ||
             p.Contains("DML", StringComparison.OrdinalIgnoreCase) ||
@@ -141,7 +121,7 @@ public static class OnnxSessionFactory
 
         if (isGpuRequested && !hasGpuProvider)
         {
-            Debug.WriteLine($"[OnnxSessionFactory] Warning: GPU provider {actualProvider} was requested but only CPU is active. " +
+            Debug.WriteLine($"[OnnxSessionFactory] Warning: GPU provider {provider} was requested but only CPU is active. " +
                 $"Active providers: {string.Join(", ", activeProviders)}");
         }
 
@@ -151,6 +131,69 @@ public static class OnnxSessionFactory
             RequestedProvider = provider,
             ActiveProviders = activeProviders
         };
+    }
+
+    /// <summary>
+    /// Creates a session using the fallback chain until one succeeds.
+    /// </summary>
+    private static async Task<SessionCreationResult> CreateWithFallbackChainAsync(
+        string modelPath,
+        Action<SessionOptions>? configureOptions,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var fallbackChain = RuntimeManager.Instance.Gpu?.GetFallbackProviders()
+            ?? new[] { ExecutionProvider.Cpu };
+
+        Exception? lastException = null;
+
+        foreach (var providerToTry in fallbackChain)
+        {
+            try
+            {
+                // Get provider string for binary download
+                var providerString = providerToTry switch
+                {
+                    ExecutionProvider.Cuda => RuntimeManager.Instance.GetDefaultProvider(),
+                    ExecutionProvider.DirectML => "directml",
+                    ExecutionProvider.CoreML => "cpu",
+                    _ => "cpu"
+                };
+
+                // Download runtime binaries
+                await RuntimeManager.Instance.EnsureRuntimeAsync(
+                    "onnxruntime",
+                    provider: providerString,
+                    progress: progress,
+                    cancellationToken: cancellationToken);
+
+                // Try to create session with this provider
+                var session = Create(modelPath, providerToTry, configureOptions);
+                var activeProviders = GetActiveProviders(session);
+
+                Debug.WriteLine($"[OnnxSessionFactory] Successfully created session with provider: {providerToTry}. " +
+                    $"Active providers: {string.Join(", ", activeProviders)}");
+
+                return new SessionCreationResult
+                {
+                    Session = session,
+                    RequestedProvider = ExecutionProvider.Auto,
+                    ActiveProviders = activeProviders
+                };
+            }
+            catch (OperationCanceledException)
+            {
+                throw; // Don't catch cancellation
+            }
+            catch (Exception ex) when (providerToTry != ExecutionProvider.Cpu)
+            {
+                Debug.WriteLine($"[OnnxSessionFactory] Provider {providerToTry} failed: {ex.Message}. Trying next provider...");
+                lastException = ex;
+            }
+        }
+
+        // Should not reach here since CPU is always in chain, but just in case
+        throw lastException ?? new InvalidOperationException("No provider available for session creation");
     }
 
     /// <summary>

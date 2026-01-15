@@ -62,16 +62,24 @@ public sealed class TranscribeOptions
     public bool Translate { get; set; }
 
     /// <summary>
-    /// Gets or sets whether to enable segment-level timestamps in the transcription.
+    /// Gets or sets whether to enable timestamp token generation in the transcription.
+    /// <para>
+    /// <b>Important:</b> Despite the property name, this enables <b>segment-level</b> timestamps,
+    /// NOT word-level timestamps. The name is retained for compatibility with Whisper's API.
+    /// </para>
+    /// <para>
     /// When true, the model generates timestamp tokens that create natural segment breaks
     /// based on speech patterns. Each segment will have Start and End timestamps.
-    /// <para>
-    /// <b>Note:</b> This controls segment-level timestamps, not word-level timestamps.
-    /// True word-level timestamps (the Words property in TranscriptionSegment) require
-    /// cross-attention alignment with DTW which is not currently implemented.
-    /// See https://github.com/linto-ai/whisper-timestamped for reference.
+    /// When false, creates a single segment per 30-second audio chunk.
     /// </para>
-    /// <para>Default: false (creates single segment per 30-second chunk)</para>
+    /// <para>
+    /// <b>Word-level timestamps:</b> True word-level timestamps (populating the Words property
+    /// in TranscriptionSegment) require cross-attention alignment with Dynamic Time Warping (DTW),
+    /// which is not currently implemented. For word-level timestamps, consider using
+    /// <see href="https://github.com/linto-ai/whisper-timestamped">whisper-timestamped</see> or
+    /// <see href="https://github.com/SYSTRAN/faster-whisper">faster-whisper</see> directly.
+    /// </para>
+    /// <para>Default: false</para>
     /// </summary>
     public bool WordTimestamps { get; set; }
 
