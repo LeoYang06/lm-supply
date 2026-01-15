@@ -103,16 +103,45 @@ public sealed class RuntimeManager : IAsyncDisposable
     /// </summary>
     private void SetupCudaDllSearchPaths()
     {
-        // This method is intentionally left minimal.
-        // CUDA/cuDNN must be in system PATH for ONNX Runtime to use them.
-        // We don't modify environment variables as that's unexpected library behavior.
-        //
-        // If CUDA is not available, the fallback chain will use DirectML or CPU.
-        //
-        // To enable CUDA:
-        // 1. Install CUDA Toolkit (adds to PATH automatically)
-        // 2. Install cuDNN and add its bin directory to system PATH
-        //    Example: C:\Program Files\NVIDIA\CUDNN\v9.17\bin\12.9
+        if (!OperatingSystem.IsWindows())
+            return;
+
+        // Add CUDA bin directory to DLL search path
+        var cudaPath = Environment.GetEnvironmentVariable("CUDA_PATH");
+        if (!string.IsNullOrEmpty(cudaPath))
+        {
+            var cudaBin = Path.Combine(cudaPath, "bin");
+            if (Directory.Exists(cudaBin))
+            {
+                NativeLoader.Instance.AddToWindowsDllSearchPath(cudaBin);
+                Debug.WriteLine($"[RuntimeManager] Added CUDA bin to DLL search path: {cudaBin}");
+            }
+        }
+
+        // Add cuDNN bin directories to DLL search path
+        // cuDNN is typically installed at C:\Program Files\NVIDIA\CUDNN\v{version}\bin\{cuda_version}
+        var cudnnBasePath = @"C:\Program Files\NVIDIA\CUDNN";
+        if (Directory.Exists(cudnnBasePath))
+        {
+            foreach (var versionDir in Directory.GetDirectories(cudnnBasePath, "v*"))
+            {
+                var binDir = Path.Combine(versionDir, "bin");
+                if (Directory.Exists(binDir))
+                {
+                    // Check CUDA version-specific subdirectories (e.g., bin\12.x)
+                    foreach (var cudaVersionDir in Directory.GetDirectories(binDir))
+                    {
+                        if (Directory.Exists(cudaVersionDir))
+                        {
+                            NativeLoader.Instance.AddToWindowsDllSearchPath(cudaVersionDir);
+                            Debug.WriteLine($"[RuntimeManager] Added cuDNN bin to DLL search path: {cudaVersionDir}");
+                        }
+                    }
+                    // Also add the bin directory itself
+                    NativeLoader.Instance.AddToWindowsDllSearchPath(binDir);
+                }
+            }
+        }
     }
 
     /// <summary>
