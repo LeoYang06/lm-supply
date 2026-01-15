@@ -499,6 +499,11 @@ public static class OnnxSessionFactory
     {
         try
         {
+            // DirectML requires these settings to work properly and avoid hangs
+            // See: https://onnxruntime.ai/docs/execution-providers/DirectML-ExecutionProvider.html
+            options.EnableMemoryPattern = false;
+            options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
+            
             options.AppendExecutionProvider_DML();
             Debug.WriteLine("[OnnxSessionFactory] DirectML provider added successfully");
             return true;

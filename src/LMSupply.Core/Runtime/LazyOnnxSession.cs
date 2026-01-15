@@ -229,6 +229,10 @@ public sealed class LazyOnnxSession : IDisposable, IAsyncDisposable
     {
         try
         {
+            // DirectML requires these settings to work properly and avoid hangs
+            options.EnableMemoryPattern = false;
+            options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
+            
             options.AppendExecutionProvider_DML();
             return true;
         }

@@ -202,6 +202,9 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
             case ExecutionProvider.DirectML:
                 try
                 {
+                    // DirectML requires these settings to avoid hangs
+                    sessionOptions.EnableMemoryPattern = false;
+                    sessionOptions.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
                     sessionOptions.AppendExecutionProvider_DML(options.DeviceId);
                 }
                 catch
@@ -248,6 +251,9 @@ internal sealed class OnnxImageGeneratorModel : IImageGeneratorModel
         // Try DirectML (Windows with any DirectX 12 GPU)
         try
         {
+            // DirectML requires these settings to avoid hangs
+            options.EnableMemoryPattern = false;
+            options.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
             options.AppendExecutionProvider_DML(deviceId);
             return;
         }
