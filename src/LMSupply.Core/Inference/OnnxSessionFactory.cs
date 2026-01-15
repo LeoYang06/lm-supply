@@ -157,9 +157,10 @@ public static class OnnxSessionFactory
                 // For CUDA, check if runtime libraries are available FIRST
                 if (providerToTry == ExecutionProvider.Cuda)
                 {
-                    if (!IsCudaRuntimeAvailable())
+                    var (cudaAvailable, missingLibs) = CheckCudaRuntimeAvailability();
+                    if (!cudaAvailable)
                     {
-                        Console.WriteLine($"[Fallback] CUDA: skipped (runtime libraries not found)");
+                        Console.WriteLine($"[Fallback] CUDA: skipped (missing: {string.Join(", ", missingLibs)})");
                         triedProviders.Add("CUDA(skipped)");
                         continue;
                     }
@@ -258,41 +259,62 @@ public static class OnnxSessionFactory
     /// </summary>
     private static bool IsCudaRuntimeAvailable()
     {
-        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
-            return false;
-
-        // ONNX Runtime CUDA provider requires ALL of these libraries
-        // Check CUDA 12 first, then CUDA 11
-        var cuda12Libs = new[] { "cublas64_12", "cublasLt64_12" };
-        var cuda11Libs = new[] { "cublas64_11", "cublasLt64_11" };
-
-        // All CUDA 12 libraries must be available
-        if (AreAllLibrariesAvailable(cuda12Libs))
-            return true;
-
-        // Or all CUDA 11 libraries must be available
-        if (AreAllLibrariesAvailable(cuda11Libs))
-            return true;
-
-        return false;
+        var (available, _) = CheckCudaRuntimeAvailability();
+        return available;
     }
 
-    private static bool AreAllLibrariesAvailable(string[] libs)
+    /// <summary>
+    /// Checks CUDA runtime availability by attempting to add the CUDA provider.
+    /// Parses error messages to extract missing library names.
+    /// </summary>
+    /// <returns>Tuple of (isAvailable, missingLibraries)</returns>
+    private static (bool Available, string[] MissingLibraries) CheckCudaRuntimeAvailability()
     {
-        foreach (var lib in libs)
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
+            return (false, new[] { "CUDA not supported on this platform" });
+
+        try
         {
-            try
-            {
-                if (!System.Runtime.InteropServices.NativeLibrary.TryLoad(lib, out var handle))
-                    return false;
-                System.Runtime.InteropServices.NativeLibrary.Free(handle);
-            }
-            catch
-            {
-                return false;
-            }
+            // Try to add CUDA provider - this will fail fast if libraries are missing
+            using var testOptions = new SessionOptions();
+            testOptions.AppendExecutionProvider_CUDA();
+
+            // If we got here, CUDA provider was added successfully
+            return (true, Array.Empty<string>());
         }
-        return true;
+        catch (Exception ex)
+        {
+            // Parse error message to extract missing DLL names
+            var missingLibs = ParseMissingLibrariesFromError(ex.Message);
+            if (missingLibs.Length > 0)
+                return (false, missingLibs);
+
+            // Generic error - return the message
+            return (false, new[] { ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Parses ONNX Runtime error messages to extract missing library names.
+    /// Example: '...depends on "cublasLt64_12.dll" which is missing...'
+    /// </summary>
+    private static string[] ParseMissingLibrariesFromError(string errorMessage)
+    {
+        var missing = new List<string>();
+
+        // Pattern: depends on "xxx.dll" which is missing
+        var regex = new System.Text.RegularExpressions.Regex(
+            @"depends on ""([^""]+\.dll)"" which is missing",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        var matches = regex.Matches(errorMessage);
+        foreach (System.Text.RegularExpressions.Match match in matches)
+        {
+            if (match.Groups.Count > 1)
+                missing.Add(match.Groups[1].Value);
+        }
+
+        return missing.ToArray();
     }
 
     /// <summary>
