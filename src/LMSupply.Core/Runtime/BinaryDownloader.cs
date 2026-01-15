@@ -86,8 +86,8 @@ public sealed class BinaryDownloader : IDisposable
 
             try
             {
-                // Extract if archive
-                if (IsArchive(entry.Url))
+                // Extract if archive or if innerPath is specified (e.g., NuGet packages without .nupkg extension)
+                if (IsArchive(entry.Url) || !string.IsNullOrEmpty(entry.InnerPath))
                 {
                     await ExtractArchiveAsync(downloadPath, targetDirectory, entry.FileName, entry.InnerPath, cancellationToken);
                 }
@@ -339,6 +339,12 @@ public sealed class BinaryDownloader : IDisposable
             return ".tar.gz";
         if (url.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase))
             return ".tgz";
+
+        // NuGet API URLs use version numbers at the end (e.g., /0.9.0) which Path.GetExtension
+        // incorrectly interprets as ".0" extension. Check for NuGet URLs first.
+        if (url.Contains("nuget.org/api", StringComparison.OrdinalIgnoreCase))
+            return ".nupkg";
+
         return Path.GetExtension(url);
     }
 
