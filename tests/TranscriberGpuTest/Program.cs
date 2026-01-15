@@ -5,8 +5,10 @@ using LMSupply.Transcriber;
 
 Console.WriteLine("=== LMSupply Transcriber GPU Test ===\n");
 
-// Parse provider argument
+// Parse arguments
 var providerArg = args.FirstOrDefault(a => a.StartsWith("--provider="));
+var languageArg = args.FirstOrDefault(a => a.StartsWith("--language="));
+
 var requestedProvider = ExecutionProvider.Auto;
 if (providerArg != null)
 {
@@ -19,6 +21,8 @@ if (providerArg != null)
         _ => ExecutionProvider.Auto
     };
 }
+
+string? requestedLanguage = languageArg?.Split('=')[1];
 
 // 1. 환경 감지 테스트
 Console.WriteLine("## 1. Environment Detection");
@@ -50,7 +54,7 @@ Console.WriteLine($"Requested Provider: {model.RequestedProvider}");
 Console.WriteLine();
 
 // 3. 테스트 오디오 파일이 있으면 실제 추론 테스트
-var testAudioPath = args.Length > 0 ? args[0] : null;
+var testAudioPath = args.FirstOrDefault(a => !a.StartsWith("--") && File.Exists(a));
 
 if (!string.IsNullOrEmpty(testAudioPath) && File.Exists(testAudioPath))
 {
@@ -61,8 +65,11 @@ if (!string.IsNullOrEmpty(testAudioPath) && File.Exists(testAudioPath))
     var transcribeOptions = new TranscribeOptions
     {
         WordTimestamps = true,  // segment-level timestamps
-        Language = null  // auto-detect
+        Language = requestedLanguage  // null = auto-detect, or specify: zh, en, ko, ja, etc.
     };
+
+    if (requestedLanguage != null)
+        Console.WriteLine($"Language: {requestedLanguage}");
 
     sw.Restart();
     var result = await model.TranscribeAsync(testAudioPath, transcribeOptions);
