@@ -232,7 +232,16 @@ public static class OnnxSessionFactory
             }
             catch (Exception ex) when (providerToTry != ExecutionProvider.Cpu)
             {
-                Console.WriteLine($"[Fallback] {providerToTry}: failed ({ex.Message})");
+                // Try to parse missing library names from CUDA errors
+                var missingLibs = ParseMissingLibrariesFromError(ex.Message);
+                if (missingLibs.Length > 0)
+                {
+                    Console.WriteLine($"[Fallback] {providerToTry}: failed (missing: {string.Join(", ", missingLibs)})");
+                }
+                else
+                {
+                    Console.WriteLine($"[Fallback] {providerToTry}: failed ({ex.Message})");
+                }
                 triedProviders.Add($"{providerToTry}(error)");
                 lastException = ex;
             }
@@ -264,8 +273,8 @@ public static class OnnxSessionFactory
     }
 
     /// <summary>
-    /// Checks CUDA runtime availability by attempting to add the CUDA provider.
-    /// Parses error messages to extract missing library names.
+    /// Checks CUDA runtime availability using NativeLibrary.TryLoad.
+    /// This works before ONNX Runtime is loaded.
     /// </summary>
     /// <returns>Tuple of (isAvailable, missingLibraries)</returns>
     private static (bool Available, string[] MissingLibraries) CheckCudaRuntimeAvailability()
@@ -273,25 +282,34 @@ public static class OnnxSessionFactory
         if (!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
             return (false, new[] { "CUDA not supported on this platform" });
 
-        try
-        {
-            // Try to add CUDA provider - this will fail fast if libraries are missing
-            using var testOptions = new SessionOptions();
-            testOptions.AppendExecutionProvider_CUDA();
+        // Check common CUDA runtime libraries
+        // We check for cuBLAS (required) - if this is missing, CUDA won't work
+        var librariesToCheck = new[] { "cublas64_12", "cublasLt64_12" };
+        var missing = new List<string>();
 
-            // If we got here, CUDA provider was added successfully
-            return (true, Array.Empty<string>());
-        }
-        catch (Exception ex)
+        foreach (var lib in librariesToCheck)
         {
-            // Parse error message to extract missing DLL names
-            var missingLibs = ParseMissingLibrariesFromError(ex.Message);
-            if (missingLibs.Length > 0)
-                return (false, missingLibs);
-
-            // Generic error - return the message
-            return (false, new[] { ex.Message });
+            try
+            {
+                if (!System.Runtime.InteropServices.NativeLibrary.TryLoad(lib, out var handle))
+                {
+                    missing.Add(lib + ".dll");
+                }
+                else
+                {
+                    System.Runtime.InteropServices.NativeLibrary.Free(handle);
+                }
+            }
+            catch
+            {
+                missing.Add(lib + ".dll");
+            }
         }
+
+        if (missing.Count > 0)
+            return (false, missing.ToArray());
+
+        return (true, Array.Empty<string>());
     }
 
     /// <summary>
