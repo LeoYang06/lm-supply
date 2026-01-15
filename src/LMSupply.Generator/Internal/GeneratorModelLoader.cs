@@ -74,6 +74,7 @@ internal static class GeneratorModelLoader
 
     /// <summary>
     /// Ensures GenAI runtime binaries (onnxruntime-genai) are downloaded for the specified provider.
+    /// Also ensures the base onnxruntime binaries are available since genai depends on them.
     /// </summary>
     private static async Task EnsureGenAiRuntimeAsync(
         ExecutionProvider provider,
@@ -96,6 +97,13 @@ internal static class GeneratorModelLoader
             ExecutionProvider.CoreML => "cpu", // CoreML uses CPU binaries
             _ => "cpu"
         };
+
+        // Download base onnxruntime binaries first (genai depends on these)
+        await RuntimeManager.Instance.EnsureRuntimeAsync(
+            "onnxruntime",
+            provider: providerString,
+            progress: progress,
+            cancellationToken: cancellationToken);
 
         // Download GenAI runtime binaries
         await RuntimeManager.Instance.EnsureRuntimeAsync(
