@@ -307,11 +307,36 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
                 };
             }
 
-            // Download model if needed
-            var modelPath = await ResolveModelPathAsync(cancellationToken);
+            // Download model if needed and get discovery result
+            var (baseModelPath, discovery) = await ResolveModelPathAsync(cancellationToken);
+
+            // Determine encoder/decoder paths using discovery result or fallback to legacy behavior
+            string encoderPath;
+            string decoderPath;
+            string tokenizerPath;
+
+            if (discovery != null)
+            {
+                // Use discovery result for accurate path resolution (handles subfolder structures)
+                encoderPath = discovery.GetEncoderPath(baseModelPath)
+                    ?? Path.Combine(discovery.GetOnnxDirectory(baseModelPath), _modelInfo!.EncoderFile);
+                decoderPath = discovery.GetDecoderPath(baseModelPath)
+                    ?? Path.Combine(discovery.GetOnnxDirectory(baseModelPath), _modelInfo!.DecoderFile);
+                // Tokenizer files are typically in the base model directory
+                tokenizerPath = baseModelPath;
+
+                Debug.WriteLine($"[OnnxTranscriberModel] Using discovery-based paths - Subfolder: {discovery.Subfolder ?? "(root)"}, " +
+                    $"Encoder: {Path.GetFileName(encoderPath)}, Decoder: {Path.GetFileName(decoderPath)}");
+            }
+            else
+            {
+                // Fallback for local paths without discovery
+                encoderPath = Path.Combine(baseModelPath, _modelInfo!.EncoderFile);
+                decoderPath = Path.Combine(baseModelPath, _modelInfo.DecoderFile);
+                tokenizerPath = baseModelPath;
+            }
 
             // Load encoder with GPU provider verification
-            var encoderPath = Path.Combine(modelPath, _modelInfo!.EncoderFile);
             if (!File.Exists(encoderPath))
             {
                 throw new FileNotFoundException($"Encoder model not found: {encoderPath}");
@@ -335,7 +360,6 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             }
 
             // Load decoder if available - use same provider as encoder
-            var decoderPath = Path.Combine(modelPath, _modelInfo.DecoderFile);
             if (File.Exists(decoderPath))
             {
                 var decoderSessionInfo = await OnnxSessionFactory.CreateWithInfoAsync(
@@ -355,8 +379,8 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             }
 
             // Store model path and load tokenizer
-            _modelPath = modelPath;
-            _tokenizer = await WhisperTokenizer.LoadAsync(modelPath, cancellationToken);
+            _modelPath = tokenizerPath;
+            _tokenizer = await WhisperTokenizer.LoadAsync(tokenizerPath, cancellationToken);
 
             // Create decoder if decoder session is available
             if (_decoderSession != null)
@@ -372,19 +396,19 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
         }
     }
 
-    private async Task<string> ResolveModelPathAsync(CancellationToken cancellationToken)
+    private async Task<(string modelPath, ModelDiscoveryResult? discovery)> ResolveModelPathAsync(CancellationToken cancellationToken)
     {
-        // If it's a local directory path, return it
+        // If it's a local directory path, return it without discovery
         if (Directory.Exists(_modelInfo!.Id))
         {
-            return _modelInfo.Id;
+            return (_modelInfo.Id, null);
         }
 
         // Check if parent directory exists (for file paths)
         var parentDir = Path.GetDirectoryName(_modelInfo.Id);
         if (parentDir != null && Directory.Exists(parentDir))
         {
-            return parentDir;
+            return (parentDir, null);
         }
 
         // Download from HuggingFace using discovery for complete file set
@@ -393,7 +417,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
 
         // Use discovery-based download to automatically find all model files
         // including external data files (*.onnx_data) for large models
-        var (modelPath, _) = await downloader.DownloadWithDiscoveryAsync(
+        var (modelPath, discovery) = await downloader.DownloadWithDiscoveryAsync(
             _modelInfo.Id,
             preferences: new ModelPreferences
             {
@@ -402,7 +426,7 @@ internal sealed class OnnxTranscriberModel : ITranscriberModel
             },
             cancellationToken: cancellationToken);
 
-        return modelPath;
+        return (modelPath, discovery);
     }
 
     private void ConfigureSessionOptions(SessionOptions options)

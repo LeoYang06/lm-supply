@@ -33,6 +33,7 @@ public static class LocalCaptioner
 
         ModelInfo? modelInfo = null;
         string modelDir;
+        string? tokenizerDir = null; // Separate tokenizer directory for HuggingFace repos with subfolders
 
         // Check if it's a local directory path
         if (Directory.Exists(modelIdOrPath))
@@ -77,10 +78,11 @@ public static class LocalCaptioner
                 progress: progress,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            modelDir = downloadedDir;
+            // Use discovery result to get correct ONNX directory (handles subfolder structures)
+            var onnxDir = discovery.GetOnnxDirectory(downloadedDir);
 
-            // Try to infer model info
-            if (!TryInferModelInfo(modelDir, out modelInfo))
+            // Try to infer model info using the ONNX directory
+            if (!TryInferModelInfo(onnxDir, downloadedDir, out modelInfo))
             {
                 throw new ModelNotFoundException(
                     $"Could not determine model type for: {modelIdOrPath}. " +
@@ -88,6 +90,10 @@ public static class LocalCaptioner
                     "Use a known model ID (e.g., 'default', 'vit-gpt2') or ensure the model follows a supported format.",
                     modelIdOrPath);
             }
+
+            // ONNX files are in onnxDir, tokenizer files are in base downloadedDir
+            modelDir = onnxDir;
+            tokenizerDir = downloadedDir;
         }
         else
         {
@@ -100,7 +106,7 @@ public static class LocalCaptioner
 
         // Create the appropriate captioner based on model type
         // modelInfo is guaranteed non-null here due to control flow above
-        return await CreateCaptionerAsync(modelDir, modelInfo!, options).ConfigureAwait(false);
+        return await CreateCaptionerAsync(modelDir, modelInfo!, options, tokenizerDir).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -111,23 +117,42 @@ public static class LocalCaptioner
     private static async Task<ICaptionerModel> CreateCaptionerAsync(
         string modelDir,
         ModelInfo modelInfo,
-        CaptionerOptions options)
+        CaptionerOptions options,
+        string? tokenizerDir = null)
     {
         // Currently only ViT-GPT2 style models are supported
         // Future: Add support for Florence-2, SmolVLM, etc.
-        return await VitGpt2Captioner.CreateAsync(modelDir, modelInfo, options).ConfigureAwait(false);
+        return await VitGpt2Captioner.CreateAsync(modelDir, modelInfo, options, tokenizerDir).ConfigureAwait(false);
     }
 
     private static bool TryInferModelInfo(string modelDir, out ModelInfo? modelInfo)
     {
+        return TryInferModelInfo(modelDir, modelDir, out modelInfo);
+    }
+
+    /// <summary>
+    /// Tries to infer model info from directory contents.
+    /// Handles cases where ONNX files and tokenizer files are in different directories.
+    /// </summary>
+    /// <param name="onnxDir">Directory containing ONNX model files.</param>
+    /// <param name="baseDir">Base directory containing tokenizer/config files.</param>
+    /// <param name="modelInfo">The inferred model info if successful.</param>
+    /// <returns>True if model info was successfully inferred.</returns>
+    private static bool TryInferModelInfo(string onnxDir, string baseDir, out ModelInfo? modelInfo)
+    {
         // Check for ViT-GPT2 style model (encoder_model.onnx + decoder_model_merged.onnx)
-        var encoderPath = Path.Combine(modelDir, "encoder_model.onnx");
-        var decoderPath = Path.Combine(modelDir, "decoder_model_merged.onnx");
+        var encoderPath = Path.Combine(onnxDir, "encoder_model.onnx");
+        var decoderPath = Path.Combine(onnxDir, "decoder_model_merged.onnx");
 
         if (File.Exists(encoderPath) && File.Exists(decoderPath))
         {
-            // Check for vocab.json (GPT-2 tokenizer)
-            var vocabPath = Path.Combine(modelDir, "vocab.json");
+            // Check for vocab.json (GPT-2 tokenizer) - may be in base dir or onnx dir
+            var vocabPath = Path.Combine(baseDir, "vocab.json");
+            if (!File.Exists(vocabPath))
+            {
+                vocabPath = Path.Combine(onnxDir, "vocab.json");
+            }
+
             if (File.Exists(vocabPath))
             {
                 modelInfo = ModelRegistry.GetModel("vit-gpt2");

@@ -1,4 +1,4 @@
-using LMSupply.Download;
+using LMSupply.Core.Download;
 using LMSupply.Inference;
 using LMSupply.Segmenter.Models;
 using Microsoft.ML.OnnxRuntime;
@@ -294,45 +294,15 @@ internal sealed class OnnxSegmenterModel : ISegmenterModel
 
     private async Task<string> ResolveModelPathAsync(CancellationToken cancellationToken)
     {
-        // If it's a local path, return directly
-        if (File.Exists(_modelInfo.Id))
-        {
-            return _modelInfo.Id;
-        }
+        // Use centralized ModelPathResolver for consistent subfolder handling
+        using var resolver = new ModelPathResolver(_options.CacheDirectory);
 
-        // Download from HuggingFace
-        using var downloader = new HuggingFaceDownloader(_options.CacheDirectory);
-
-        var modelDir = await downloader.DownloadModelAsync(
+        var result = await resolver.ResolveModelAsync(
             _modelInfo.Id,
-            files: [_modelInfo.OnnxFile, "config.json"],
+            expectedOnnxFile: _modelInfo.OnnxFile,
             cancellationToken: cancellationToken);
 
-        var modelPath = Path.Combine(modelDir, _modelInfo.OnnxFile);
-
-        // Try common ONNX paths if default not found
-        if (!File.Exists(modelPath))
-        {
-            var alternatives = new[] { "model.onnx", "onnx/model.onnx", "model_fp16.onnx", "model_fp32.onnx" };
-            foreach (var alt in alternatives)
-            {
-                var altPath = Path.Combine(modelDir, alt);
-                if (File.Exists(altPath))
-                {
-                    modelPath = altPath;
-                    break;
-                }
-            }
-        }
-
-        if (!File.Exists(modelPath))
-        {
-            throw new FileNotFoundException(
-                $"ONNX model not found in {modelDir}. Expected: {_modelInfo.OnnxFile}",
-                modelPath);
-        }
-
-        return modelPath;
+        return result.ModelPath;
     }
 
     private void ConfigureSessionOptions(SessionOptions options)

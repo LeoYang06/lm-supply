@@ -101,6 +101,60 @@ public sealed class ModelDiscoveryResult
             return lastSlash >= 0 ? f[(lastSlash + 1)..] : f;
         });
     }
+
+    /// <summary>
+    /// Gets the directory path where ONNX model files are located.
+    /// This accounts for subfolder structures in HuggingFace repositories.
+    /// </summary>
+    /// <param name="baseModelDir">The base model directory from cache.</param>
+    /// <returns>The full path to the directory containing ONNX files.</returns>
+    public string GetOnnxDirectory(string baseModelDir)
+    {
+        if (string.IsNullOrEmpty(Subfolder))
+            return baseModelDir;
+
+        return Path.Combine(baseModelDir, Subfolder.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    /// <summary>
+    /// Gets the full path to a specific file within the model directory.
+    /// Handles both subfolder and root-level file locations.
+    /// </summary>
+    /// <param name="baseModelDir">The base model directory from cache.</param>
+    /// <param name="relativePath">The relative path of the file (may include subfolder).</param>
+    /// <returns>The full local path to the file.</returns>
+    public string GetFilePath(string baseModelDir, string relativePath)
+    {
+        return Path.Combine(baseModelDir, relativePath.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    /// <summary>
+    /// Finds the actual path to an encoder file, searching in discovered encoder files.
+    /// Returns null if no encoder file is found.
+    /// </summary>
+    /// <param name="baseModelDir">The base model directory from cache.</param>
+    /// <returns>The full path to the encoder file, or null if not found.</returns>
+    public string? GetEncoderPath(string baseModelDir)
+    {
+        if (EncoderFiles.Count == 0)
+            return null;
+
+        return GetFilePath(baseModelDir, EncoderFiles[0]);
+    }
+
+    /// <summary>
+    /// Finds the actual path to a decoder file, searching in discovered decoder files.
+    /// Returns null if no decoder file is found.
+    /// </summary>
+    /// <param name="baseModelDir">The base model directory from cache.</param>
+    /// <returns>The full path to the decoder file, or null if not found.</returns>
+    public string? GetDecoderPath(string baseModelDir)
+    {
+        if (DecoderFiles.Count == 0)
+            return null;
+
+        return GetFilePath(baseModelDir, DecoderFiles[0]);
+    }
 }
 
 /// <summary>

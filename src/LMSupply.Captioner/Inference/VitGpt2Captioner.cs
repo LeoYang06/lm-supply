@@ -56,10 +56,15 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
     /// <summary>
     /// Creates a new VitGpt2Captioner instance.
     /// </summary>
+    /// <param name="modelDir">Directory containing ONNX model files.</param>
+    /// <param name="modelInfo">Model configuration info.</param>
+    /// <param name="options">Captioner options.</param>
+    /// <param name="tokenizerDir">Optional directory containing tokenizer files. If null, uses modelDir.</param>
     public static async Task<VitGpt2Captioner> CreateAsync(
         string modelDir,
         ModelInfo modelInfo,
-        CaptionerOptions options)
+        CaptionerOptions options,
+        string? tokenizerDir = null)
     {
         var encoderPath = Path.Combine(modelDir, modelInfo.EncoderFile);
         var decoderPath = Path.Combine(modelDir, modelInfo.DecoderFile);
@@ -73,8 +78,8 @@ internal sealed class VitGpt2Captioner : ICaptionerModel
         var encoder = await OnnxSessionFactory.CreateAsync(encoderPath, options.Provider).ConfigureAwait(false);
         var decoder = await OnnxSessionFactory.CreateAsync(decoderPath, options.Provider).ConfigureAwait(false);
 
-        // Load tokenizer from Text.Core
-        var tokenizer = Text.TokenizerFactory.CreateGpt2(modelDir);
+        // Load tokenizer from Text.Core - tokenizer files may be in a different directory (e.g., base dir for HuggingFace repos)
+        var tokenizer = Text.TokenizerFactory.CreateGpt2(tokenizerDir ?? modelDir);
 
         return new VitGpt2Captioner(encoder, decoder, tokenizer, modelInfo, options);
     }
