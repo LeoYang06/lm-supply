@@ -1034,15 +1034,15 @@ var options = new GeneratorOptions
 | 0.4 | Unit tests 작성 | ✅ Done | `ModelFormatDetectorTests.cs` (14+ cases) |
 | - | 모든 기존 테스트 통과 | ✅ Done | 164 tests passed |
 
-### Phase 1: Runtime Management (6 tasks)
-| # | Task | Priority | Complexity |
-|---|------|----------|------------|
-| 1.1 | Package reference 설정 (ExcludeAssets) | High | Low |
-| 1.2 | `LlamaRuntimeManager` 싱글톤 | High | High |
-| 1.3 | `LlamaBinaryDownloader` (GitHub releases) | High | High |
-| 1.4 | CUDA runtime 다운로더 | Medium | Medium |
-| 1.5 | `NativeLibraryConfig` 자동 설정 | High | Medium |
-| 1.6 | 플랫폼별 테스트 | Medium | Medium |
+### Phase 1: Runtime Management ✅ INFRASTRUCTURE COMPLETE
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 1.1 | Package reference (LLamaSharp v0.25.0, ExcludeAssets) | ✅ Done | `Directory.Packages.props` |
+| 1.2 | `LlamaRuntimeManager` 싱글톤 | ✅ Done | Backend detection, NativeLibraryConfig |
+| 1.3 | `LlamaBinaryDownloader` (GitHub releases) | ✅ Done | Win/Linux/macOS, caching |
+| 1.4 | `LlamaBackend` enum | ✅ Done | Cpu, Cuda12/13, Vulkan, Metal, Rocm |
+| 1.5 | `NativeLibraryConfig` 자동 설정 | ✅ Done | WithSearchDirectory, WithCuda/Vulkan |
+| 1.6 | 플랫폼별 테스트 | ⏳ Pending | Phase 3 통합 테스트에서 검증 |
 
 ### Phase 2: Model Download (5 tasks)
 | # | Task | Priority | Complexity |
@@ -1109,10 +1109,13 @@ var options = new GeneratorOptions
 - [x] `ModelFormatDetector` 구현 완료
 - [x] `GeneratorModelLoader` 형식 감지 및 라우팅 추가
 
-### Phase 1
-- [ ] CPU 백엔드 자동 다운로드 및 로드
-- [ ] CUDA 백엔드 자동 다운로드 (NVIDIA GPU 있는 경우)
-- [ ] 바이너리 캐싱 동작
+### Phase 1 ✅ IN PROGRESS (Infrastructure Complete)
+- [x] LLamaSharp v0.25.0 패키지 참조 추가 (ExcludeAssets="native")
+- [x] LlamaBackend enum 정의 (Cpu, Cuda12, Cuda13, Vulkan, Metal, Rocm)
+- [x] LlamaRuntimeManager 싱글톤 구현
+- [x] LlamaBinaryDownloader (GitHub releases) 구현
+- [x] NativeLibraryConfig 자동 설정
+- [ ] 실제 바이너리 다운로드 & 로드 통합 테스트 (Phase 3에서 검증)
 
 ### Phase 2
 - [ ] HuggingFace GGUF 파일 다운로드
