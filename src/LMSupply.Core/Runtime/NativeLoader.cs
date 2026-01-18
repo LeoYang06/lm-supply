@@ -22,7 +22,8 @@ public sealed class NativeLoader : IDisposable
     private readonly object _lock = new();
 
     private bool _isRegistered;
-    private bool _dllSearchPathModified;
+    // Disabled: See note in AddToWindowsDllSearchPath()
+    // private bool _dllSearchPathModified;
 
     // Windows API for DLL search path modification
     // These are used to add directories to the DLL search path for native-to-native dependencies
@@ -113,15 +114,13 @@ public sealed class NativeLoader : IDisposable
             // On Windows, add the directory to the DLL search path for native-to-native dependencies
             AddToWindowsDllSearchPath(directory);
 
-            var extensions = GetNativeLibraryExtensions();
             var libraries = new List<(string name, string path)>();
 
             foreach (var file in Directory.EnumerateFiles(directory))
             {
-                var extension = Path.GetExtension(file);
-                if (extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+                var fileName = Path.GetFileName(file);
+                if (HasNativeLibraryExtension(fileName))
                 {
-                    var fileName = Path.GetFileName(file);
                     var libraryName = GetLibraryNameFromFileName(fileName);
                     RegisterLibrary(libraryName, file);
                     libraries.Add((libraryName, file));
@@ -175,18 +174,22 @@ public sealed class NativeLoader : IDisposable
                 return;
 
             // First time: set up the search order to use application + system + user directories
-            if (!_dllSearchPathModified)
-            {
-                try
-                {
-                    SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-                    _dllSearchPathModified = true;
-                }
-                catch
-                {
-                    // Ignore - SetDefaultDllDirectories may not be available on older Windows
-                }
-            }
+            // NOTE: SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS) is intentionally disabled
+            // because it causes issues with cuDNN initialization. When called, it removes PATH from
+            // the DLL search order, preventing cuDNN from finding its dependencies like zlibwapi.dll.
+            // We rely on PATH modification instead for broader compatibility.
+            // if (!_dllSearchPathModified)
+            // {
+            //     try
+            //     {
+            //         SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+            //         _dllSearchPathModified = true;
+            //     }
+            //     catch
+            //     {
+            //         // Ignore - SetDefaultDllDirectories may not be available on older Windows
+            //     }
+            // }
 
             // Add the directory to the DLL search path
             try
@@ -370,13 +373,44 @@ public sealed class NativeLoader : IDisposable
             normalized = normalized[3..];
         }
 
-        // Remove extensions
-        foreach (var ext in new[] { ".dll", ".so", ".dylib", ".so.1" })
+        // Remove extensions - handle versioned Linux .so files (e.g., .so.1.23.2)
+        // Check for .so with version suffix first (before simple .so check)
+        var soIndex = normalized.IndexOf(".so", StringComparison.OrdinalIgnoreCase);
+        if (soIndex > 0)
         {
-            if (normalized.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+            normalized = normalized[..soIndex];
+        }
+        else if (normalized.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized[..^4];
+        }
+        else if (normalized.EndsWith(".dylib", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized[..^6];
+        }
+        // Handle macOS versioned dylib (e.g., libonnxruntime.1.23.2.dylib)
+        else
+        {
+            var dylibIndex = normalized.IndexOf(".dylib", StringComparison.OrdinalIgnoreCase);
+            if (dylibIndex > 0)
             {
-                normalized = normalized[..^ext.Length];
-                break;
+                // Check if there's a version number before .dylib (e.g., .1.23.2.dylib)
+                var beforeDylib = normalized[..dylibIndex];
+                var lastDot = beforeDylib.LastIndexOf('.');
+                if (lastDot > 0 && char.IsDigit(beforeDylib[lastDot + 1]))
+                {
+                    // Find the start of the version number
+                    int versionStart = lastDot;
+                    while (versionStart > 0 && (char.IsDigit(beforeDylib[versionStart - 1]) || beforeDylib[versionStart - 1] == '.'))
+                    {
+                        versionStart--;
+                    }
+                    normalized = beforeDylib[..versionStart];
+                }
+                else
+                {
+                    normalized = beforeDylib;
+                }
             }
         }
 
@@ -404,11 +438,31 @@ public sealed class NativeLoader : IDisposable
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             return new[] { ".dll" };
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            return new[] { ".so", ".so.1" };
+            // Include versioned .so files (e.g., .so.1.23.2) - check for .so anywhere in extension
+            return new[] { ".so" };
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             return new[] { ".dylib" };
 
         return new[] { ".dll", ".so", ".dylib" };
+    }
+
+    /// <summary>
+    /// Checks if a filename has a native library extension.
+    /// </summary>
+    private static bool HasNativeLibraryExtension(string fileName)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            // Match .so anywhere in the filename for versioned libraries (e.g., libonnxruntime.so.1.23.2)
+            return fileName.Contains(".so", StringComparison.OrdinalIgnoreCase);
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            // Match .dylib anywhere for versioned libraries (e.g., libonnxruntime.1.23.2.dylib)
+            return fileName.Contains(".dylib", StringComparison.OrdinalIgnoreCase);
+
+        return fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ||
+               fileName.Contains(".so", StringComparison.OrdinalIgnoreCase) ||
+               fileName.Contains(".dylib", StringComparison.OrdinalIgnoreCase);
     }
 
     public void Dispose()

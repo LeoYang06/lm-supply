@@ -67,6 +67,25 @@ Console.WriteLine($"Platform: {RuntimeManager.Instance.Platform}");
 Console.WriteLine($"GPU: {RuntimeManager.Instance.Gpu}");
 Console.WriteLine($"Recommended Provider: {RuntimeManager.Instance.RecommendedProvider}");
 Console.WriteLine($"Fallback Chain: {string.Join(" -> ", RuntimeManager.Instance.GetProviderFallbackChain())}");
+
+// Diagnostic: Check cuDNN path detection
+var cudaEnv = CudaEnvironment.Instance;
+var cudaMajor = RuntimeManager.Instance.Gpu?.CudaDriverVersionMajor ?? 12;
+Console.WriteLine($"\n### cuDNN Path Diagnostics (CUDA Major: {cudaMajor})");
+var dllPaths = cudaEnv.GetDllSearchPaths(cudaMajor).ToList();
+Console.WriteLine($"DLL Search Paths ({dllPaths.Count}):");
+foreach (var p in dllPaths)
+{
+    var zlibExists = File.Exists(Path.Combine(p, "zlibwapi.dll"));
+    var cudnnExists = File.Exists(Path.Combine(p, "cudnn64_9.dll"));
+    Console.WriteLine($"  - {p}");
+    Console.WriteLine($"    cudnn64_9.dll: {cudnnExists}, zlibwapi.dll: {zlibExists}");
+}
+
+// Check if PATH was modified
+var pathVar = Environment.GetEnvironmentVariable("PATH") ?? "";
+var cudnnInPath = dllPaths.Any(p => pathVar.Contains(p, StringComparison.OrdinalIgnoreCase));
+Console.WriteLine($"cuDNN dir in PATH: {cudnnInPath}");
 Console.WriteLine();
 
 // 2. 모델 로드 테스트

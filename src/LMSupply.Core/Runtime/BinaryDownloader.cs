@@ -277,28 +277,92 @@ public sealed class BinaryDownloader : IDisposable
         else if (extension is ".tgz" or ".gz")
         {
             // For .tar.gz files, use System.Formats.Tar if available (.NET 7+)
-            await ExtractTarGzAsync(archivePath, targetDirectory, targetFileName, cancellationToken);
+            await ExtractTarGzAsync(archivePath, targetDirectory, targetFileName, innerPath, cancellationToken);
         }
     }
 
     /// <summary>
-    /// Extracts a tar.gz archive.
+    /// Extracts a tar.gz archive with optional innerPath filtering.
+    /// When innerPath is specified, only files under that path are extracted,
+    /// and the innerPath prefix is stripped from the destination paths.
     /// </summary>
     private static async Task ExtractTarGzAsync(
         string archivePath,
         string targetDirectory,
         string targetFileName,
+        string? innerPath,
         CancellationToken cancellationToken)
     {
         await using var fileStream = File.OpenRead(archivePath);
         await using var gzipStream = new GZipStream(fileStream, CompressionMode.Decompress);
 
-        // Use System.Formats.Tar for .NET 7+
-        await System.Formats.Tar.TarFile.ExtractToDirectoryAsync(
-            gzipStream,
-            targetDirectory,
-            overwriteFiles: true,
-            cancellationToken: cancellationToken);
+        // Normalize innerPath for comparison
+        var normalizedInnerPath = string.IsNullOrEmpty(innerPath)
+            ? null
+            : innerPath.Replace('\\', '/').TrimEnd('/') + "/";
+
+        await using var tarReader = new System.Formats.Tar.TarReader(gzipStream, leaveOpen: false);
+
+        while (await tarReader.GetNextEntryAsync(copyData: false, cancellationToken) is { } entry)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Skip directory entries and symbolic links
+            // Symlinks in ONNX Runtime tarballs are convenience links (e.g., libonnxruntime.so -> libonnxruntime.so.1.23.2)
+            // We extract the actual versioned files which are specified in the manifest
+            if (entry.EntryType is System.Formats.Tar.TarEntryType.Directory or
+                System.Formats.Tar.TarEntryType.SymbolicLink or
+                System.Formats.Tar.TarEntryType.HardLink)
+                continue;
+
+            var entryPath = entry.Name.Replace('\\', '/');
+
+            string destRelativePath;
+
+            if (!string.IsNullOrEmpty(normalizedInnerPath))
+            {
+                // Filter by innerPath and strip the prefix
+                if (!entryPath.StartsWith(normalizedInnerPath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                destRelativePath = entryPath.Substring(normalizedInnerPath.Length);
+            }
+            else
+            {
+                // No innerPath filter - extract files from lib/ directory or matching targetFileName
+                if (entryPath.Contains("/lib/", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Extract just the filename from lib/ paths
+                    destRelativePath = Path.GetFileName(entryPath);
+                }
+                else if (Path.GetFileName(entryPath).Equals(targetFileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    destRelativePath = targetFileName;
+                }
+                else
+                {
+                    continue;
+                }
+            }
+
+            // Skip if no relative path (shouldn't happen, but defensive)
+            if (string.IsNullOrEmpty(destRelativePath))
+                continue;
+
+            var destPath = Path.Combine(targetDirectory, destRelativePath);
+
+            // Ensure directory exists
+            var destDir = Path.GetDirectoryName(destPath);
+            if (!string.IsNullOrEmpty(destDir))
+                Directory.CreateDirectory(destDir);
+
+            // Clean up existing file
+            if (File.Exists(destPath))
+                File.Delete(destPath);
+
+            // Extract the file
+            await entry.ExtractToFileAsync(destPath, overwrite: true, cancellationToken);
+        }
     }
 
     /// <summary>

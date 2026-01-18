@@ -246,8 +246,9 @@ public static class OnnxSessionFactory
                     var cudnn = cudaEnv.GetBestCuDnn(cudaMajor);
                     if (cudnn is not null)
                     {
-                        Console.WriteLine($"           Found: cuDNN {cudnn.Version} at {cudnn.BinPath}");
-                        Console.WriteLine($"           Check: zlibwapi.dll may be missing (required for cuDNN 8.3+)");
+                        Console.WriteLine($"           Found: cuDNN {cudnn.Version} at {cudnn.LibraryPath}");
+                        if (cudnn.MajorVersion < 9)
+                            Console.WriteLine($"           Note: zlibwapi.dll may be required for cuDNN 8.x");
                     }
                     else
                     {

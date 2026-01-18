@@ -51,7 +51,8 @@
               "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-x64-1.23.2.tgz",
               "fileName": "libonnxruntime.so.1.23.2",
               "size": 15000000,
-              "sha256": "placeholder-will-be-updated"
+              "sha256": "placeholder-will-be-updated",
+              "innerPath": "onnxruntime-linux-x64-1.23.2/lib"
             },
             {
               "rid": "linux-x64",
@@ -60,6 +61,7 @@
               "fileName": "libonnxruntime.so.1.23.2",
               "size": 210000000,
               "sha256": "placeholder-will-be-updated",
+              "innerPath": "onnxruntime-linux-x64-gpu-1.23.2/lib",
               "dependencies": ["libonnxruntime_providers_cuda.so", "libonnxruntime_providers_shared.so"]
             },
             {
@@ -68,7 +70,8 @@
               "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-osx-arm64-1.23.2.tgz",
               "fileName": "libonnxruntime.1.23.2.dylib",
               "size": 11000000,
-              "sha256": "placeholder-will-be-updated"
+              "sha256": "placeholder-will-be-updated",
+              "innerPath": "onnxruntime-osx-arm64-1.23.2/lib"
             },
             {
               "rid": "osx-x64",
@@ -76,7 +79,8 @@
               "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-osx-x64-1.23.2.tgz",
               "fileName": "libonnxruntime.1.23.2.dylib",
               "size": 13000000,
-              "sha256": "placeholder-will-be-updated"
+              "sha256": "placeholder-will-be-updated",
+              "innerPath": "onnxruntime-osx-x64-1.23.2/lib"
             },
             {
               "rid": "linux-arm64",
@@ -84,7 +88,8 @@
               "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.23.2/onnxruntime-linux-aarch64-1.23.2.tgz",
               "fileName": "libonnxruntime.so.1.23.2",
               "size": 12000000,
-              "sha256": "placeholder-will-be-updated"
+              "sha256": "placeholder-will-be-updated",
+              "innerPath": "onnxruntime-linux-aarch64-1.23.2/lib"
             },
             {
               "rid": "win-arm64",
@@ -141,7 +146,8 @@
               "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-linux-x64-1.20.1.tgz",
               "fileName": "libonnxruntime.so.1.20.1",
               "size": 15000000,
-              "sha256": "placeholder-will-be-updated"
+              "sha256": "placeholder-will-be-updated",
+              "innerPath": "onnxruntime-linux-x64-1.20.1/lib"
             },
             {
               "rid": "linux-x64",
@@ -150,6 +156,7 @@
               "fileName": "libonnxruntime.so.1.20.1",
               "size": 210000000,
               "sha256": "placeholder-will-be-updated",
+              "innerPath": "onnxruntime-linux-x64-gpu-1.20.1/lib",
               "dependencies": ["libonnxruntime_providers_cuda.so", "libonnxruntime_providers_shared.so"]
             },
             {
@@ -158,7 +165,8 @@
               "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-osx-arm64-1.20.1.tgz",
               "fileName": "libonnxruntime.1.20.1.dylib",
               "size": 11000000,
-              "sha256": "placeholder-will-be-updated"
+              "sha256": "placeholder-will-be-updated",
+              "innerPath": "onnxruntime-osx-arm64-1.20.1/lib"
             },
             {
               "rid": "osx-x64",
@@ -166,7 +174,8 @@
               "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-osx-x64-1.20.1.tgz",
               "fileName": "libonnxruntime.1.20.1.dylib",
               "size": 13000000,
-              "sha256": "placeholder-will-be-updated"
+              "sha256": "placeholder-will-be-updated",
+              "innerPath": "onnxruntime-osx-x64-1.20.1/lib"
             },
             {
               "rid": "linux-arm64",
@@ -174,7 +183,8 @@
               "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-linux-aarch64-1.20.1.tgz",
               "fileName": "libonnxruntime.so.1.20.1",
               "size": 12000000,
-              "sha256": "placeholder-will-be-updated"
+              "sha256": "placeholder-will-be-updated",
+              "innerPath": "onnxruntime-linux-aarch64-1.20.1/lib"
             },
             {
               "rid": "win-arm64",
