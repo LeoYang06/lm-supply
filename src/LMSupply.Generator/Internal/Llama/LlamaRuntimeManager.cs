@@ -65,19 +65,9 @@ public sealed class LlamaRuntimeManager
             // 2. Determine the best backend
             var backend = DetermineBackend(provider, platform, gpu);
 
-            // 3. Try to download native binaries (if not cached)
-            string? binaryPath = null;
-            try
-            {
-                binaryPath = await DownloadNativeBinaryAsync(
-                    backend, platform, progress, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                // Download failed - will rely on LLamaSharp.Backend.* packages or system libraries
-                System.Diagnostics.Debug.WriteLine($"[LlamaRuntimeManager] Binary download failed: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine("[LlamaRuntimeManager] Falling back to NuGet package or system libraries");
-            }
+            // 3. Download native binaries from NuGet (if not cached)
+            var binaryPath = await DownloadNativeBinaryFromNuGetAsync(
+                backend, platform, progress, cancellationToken);
 
             // 4. Configure LLamaSharp to use downloaded binaries or fallback
             ConfigureNativeLibrary(binaryPath, backend);
@@ -146,15 +136,15 @@ public sealed class LlamaRuntimeManager
     }
 
     /// <summary>
-    /// Downloads the native binary for the specified backend.
+    /// Downloads the native binary from NuGet LLamaSharp.Backend.* packages.
     /// </summary>
-    private async Task<string> DownloadNativeBinaryAsync(
+    private async Task<string> DownloadNativeBinaryFromNuGetAsync(
         LlamaBackend backend,
         PlatformInfo platform,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        var downloader = new LlamaBinaryDownloader();
+        using var downloader = new LlamaNuGetDownloader();
         return await downloader.DownloadAsync(
             backend,
             platform,
@@ -170,7 +160,34 @@ public sealed class LlamaRuntimeManager
         // Configure LLamaSharp to search in our download directory (if available)
         if (!string.IsNullOrEmpty(binaryPath) && Directory.Exists(binaryPath))
         {
-            NativeLibraryConfig.All.WithSearchDirectory(binaryPath);
+            // Check if files are in variant subdirectories (avx, avx2, avx512, noavx)
+            // Note: Using avx2 first because avx512 may have compatibility issues on some CPUs
+            var variantDirs = new[] { "avx2", "avx", "noavx", "avx512" };
+            string? selectedPath = null;
+
+            foreach (var variant in variantDirs)
+            {
+                var variantPath = Path.Combine(binaryPath, variant);
+                if (Directory.Exists(variantPath) && Directory.GetFiles(variantPath, "llama.*").Length > 0)
+                {
+                    selectedPath = variantPath;
+                    break;
+                }
+            }
+
+            // If no variant subdirectories, use the base path
+            selectedPath ??= binaryPath;
+
+            // Try to find llama library file and specify it directly
+            var llamaLib = Directory.GetFiles(selectedPath, "llama.*").FirstOrDefault();
+            if (llamaLib != null)
+            {
+                NativeLibraryConfig.All.WithLibrary(llamaLib, null);
+            }
+            else
+            {
+                NativeLibraryConfig.All.WithSearchDirectory(selectedPath);
+            }
         }
 
         // Enable auto-fallback to search system paths and NuGet package paths
@@ -207,12 +224,6 @@ public sealed class LlamaRuntimeManager
                 System.Diagnostics.Debug.WriteLine($"[LLamaSharp:{level}] {message}");
             }
         });
-
-        // Register with NativeLoader for dependency resolution (if we have a binary path)
-        if (!string.IsNullOrEmpty(binaryPath) && Directory.Exists(binaryPath))
-        {
-            NativeLoader.Instance.RegisterDirectory(binaryPath, preload: true, primaryLibrary: "llama");
-        }
     }
 
     /// <summary>
