@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using LLama.Native;
 using LMSupply.Runtime;
@@ -39,9 +40,9 @@ public sealed class LlamaRuntimeManager
 
     /// <summary>
     /// Ensures the llama.cpp runtime is initialized with the specified backend.
-    /// Downloads native binaries on first use.
+    /// Downloads native binaries on first use with automatic fallback.
     /// </summary>
-    /// <param name="provider">The execution provider to use. Auto will select the best available.</param>
+    /// <param name="provider">The execution provider to use. Auto will use fallback chain.</param>
     /// <param name="progress">Optional progress reporter for download operations.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task EnsureInitializedAsync(
@@ -62,24 +63,88 @@ public sealed class LlamaRuntimeManager
             var platform = EnvironmentDetector.DetectPlatform();
             var gpu = EnvironmentDetector.DetectGpu();
 
-            // 2. Determine the best backend
-            var backend = DetermineBackend(provider, platform, gpu);
+            // 2. Get backend fallback chain
+            var chain = provider == ExecutionProvider.Auto
+                ? GetBackendFallbackChain(platform, gpu)
+                : [DetermineBackend(provider, platform, gpu)];
 
-            // 3. Download native binaries from NuGet (if not cached)
-            var binaryPath = await DownloadNativeBinaryFromNuGetAsync(
-                backend, platform, progress, cancellationToken);
+            Exception? lastException = null;
 
-            // 4. Configure LLamaSharp to use downloaded binaries or fallback
-            ConfigureNativeLibrary(binaryPath, backend);
+            // 3. Try each backend in the fallback chain
+            foreach (var backend in chain)
+            {
+                try
+                {
+                    Debug.WriteLine($"[LlamaRuntimeManager] Trying backend: {backend}");
 
-            _activeBackend = backend;
-            _binaryPath = binaryPath;
-            _initialized = true;
+                    // Download native binaries from NuGet (if not cached)
+                    var binaryPath = await DownloadNativeBinaryFromNuGetAsync(
+                        backend, platform, progress, cancellationToken);
+
+                    // Configure LLamaSharp to use downloaded binaries
+                    ConfigureNativeLibrary(binaryPath, backend);
+
+                    _activeBackend = backend;
+                    _binaryPath = binaryPath;
+                    _initialized = true;
+
+                    Debug.WriteLine($"[LlamaRuntimeManager] Successfully initialized with backend: {backend}");
+                    return;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw; // Don't catch cancellation
+                }
+                catch (Exception ex) when (backend != LlamaBackend.Cpu)
+                {
+                    // Log and continue to next backend in chain
+                    Debug.WriteLine($"[LlamaRuntimeManager] Backend '{backend}' failed: {ex.Message}. Trying next...");
+                    lastException = ex;
+                }
+            }
+
+            // Should not reach here since CPU is always in chain
+            throw lastException ?? new InvalidOperationException("No backend available for LLamaSharp");
         }
         finally
         {
             _initLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Gets a prioritized list of backends to try based on detected hardware.
+    /// Fallback chain: CUDA → Vulkan → Metal → CPU
+    /// </summary>
+    public static IReadOnlyList<LlamaBackend> GetBackendFallbackChain(PlatformInfo platform, GpuInfo gpu)
+    {
+        var chain = new List<LlamaBackend>();
+        var isArm64 = platform.Architecture == Architecture.Arm64;
+
+        // macOS ARM64: Metal first
+        if (platform.IsMacOS && isArm64)
+        {
+            chain.Add(LlamaBackend.Metal);
+        }
+
+        // NVIDIA GPU: CUDA
+        if (gpu.Vendor == GpuVendor.Nvidia)
+        {
+            if (gpu.CudaDriverVersionMajor >= 12)
+                chain.Add(LlamaBackend.Cuda12);
+        }
+
+        // AMD/Intel discrete GPU on Windows/Linux: Vulkan
+        if ((gpu.Vendor == GpuVendor.Amd || gpu.Vendor == GpuVendor.Intel) && !platform.IsMacOS)
+        {
+            // Vulkan can be unstable, but include it in fallback chain
+            chain.Add(LlamaBackend.Vulkan);
+        }
+
+        // CPU always as final fallback (well-optimized with AVX2/AVX512)
+        chain.Add(LlamaBackend.Cpu);
+
+        return chain;
     }
 
     /// <summary>
