@@ -2,6 +2,7 @@ using LMSupply.Core.Download;
 using LMSupply.Download;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.ChatFormatters;
+using LMSupply.Generator.Internal.Llama;
 using LMSupply.Generator.Models;
 using LMSupply.Runtime;
 
@@ -72,20 +73,58 @@ internal static class GeneratorModelLoader
 
     /// <summary>
     /// Loads a GGUF model from HuggingFace.
-    /// This method is a placeholder for Phase 1-3 implementation.
     /// </summary>
-    private static Task<IGeneratorModel> LoadGgufAsync(
+    private static async Task<IGeneratorModel> LoadGgufAsync(
         string modelId,
         GeneratorOptions options,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        // GGUF support will be implemented in Phase 1-3
-        // For now, throw a clear error message
-        throw new NotSupportedException(
-            $"GGUF model format detected for '{modelId}', but GGUF support is not yet implemented. " +
-            "GGUF support is planned for a future release. " +
-            "Please use ONNX format models (e.g., microsoft/Phi-4-mini-instruct-onnx) for now.");
+        var cacheDir = options.CacheDirectory ?? CacheManager.GetDefaultCacheDirectory();
+
+        // Try to resolve as registry alias first
+        var registryInfo = GgufModelRegistry.Resolve(modelId);
+        string modelPath;
+        string chatFormat;
+
+        if (registryInfo != null)
+        {
+            // Download from registry
+            using var downloader = new GgufModelDownloader(cacheDir);
+            modelPath = await downloader.DownloadFromRegistryAsync(
+                registryInfo,
+                preferredQuantization: null,
+                progress: progress,
+                cancellationToken: cancellationToken);
+
+            chatFormat = options.ChatFormat ?? registryInfo.ChatFormat;
+        }
+        else
+        {
+            // Assume it's a HuggingFace repo ID
+            using var downloader = new GgufModelDownloader(cacheDir);
+            modelPath = await downloader.DownloadAsync(
+                modelId,
+                filename: null,
+                preferredQuantization: null,
+                progress: progress,
+                cancellationToken: cancellationToken);
+
+            // Detect chat format from filename
+            chatFormat = options.ChatFormat ?? GgufChatFormatDetector.DetectFromFilename(modelPath);
+        }
+
+        // Load the model from downloaded path
+        var resolvedModelId = registryInfo?.DisplayName ?? modelId;
+        var chatFormatter = ChatFormatterFactory.CreateByFormat(chatFormat);
+
+        return await GgufGeneratorModel.LoadAsync(
+            resolvedModelId,
+            modelPath,
+            chatFormatter,
+            options,
+            progress,
+            cancellationToken);
     }
 
     public static async Task<IGeneratorModel> LoadFromPathAsync(
@@ -136,18 +175,25 @@ internal static class GeneratorModelLoader
 
     /// <summary>
     /// Loads a GGUF model from a local path.
-    /// This method is a placeholder for Phase 1-3 implementation.
     /// </summary>
-    private static Task<IGeneratorModel> LoadGgufFromPathAsync(
+    private static async Task<IGeneratorModel> LoadGgufFromPathAsync(
         string modelPath,
         GeneratorOptions options,
         string? modelId = null)
     {
-        // GGUF support will be implemented in Phase 1-3
-        throw new NotSupportedException(
-            $"GGUF model format detected for '{modelPath}', but GGUF support is not yet implemented. " +
-            "GGUF support is planned for a future release. " +
-            "Please use ONNX format models for now.");
+        modelId ??= Path.GetFileNameWithoutExtension(modelPath);
+
+        // Detect chat format from filename or use provided
+        var chatFormat = options.ChatFormat ?? GgufChatFormatDetector.DetectFromFilename(modelPath);
+        var chatFormatter = ChatFormatterFactory.CreateByFormat(chatFormat);
+
+        return await GgufGeneratorModel.LoadAsync(
+            modelId,
+            modelPath,
+            chatFormatter,
+            options,
+            progress: null,
+            CancellationToken.None);
     }
 
     /// <summary>
