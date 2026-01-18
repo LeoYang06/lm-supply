@@ -329,12 +329,27 @@ public sealed class CudaEnvironment
                     if (cudaVersion is not null)
                     {
                         var cudnnDll = GetCuDnnLibraryName(cudnnVersion.Major);
+
+                        // Check directly in CUDA version directory (legacy layout)
                         if (File.Exists(Path.Combine(cudaVersionDir, cudnnDll)))
                         {
                             _cudnnInstallations.Add(new CuDnnInstallation(
                                 cudaVersionDir,
                                 cudnnVersion,
                                 cudaVersion.Major));
+                        }
+                        // Check in architecture subdirectory (cuDNN 9.x layout: bin\12.8\x64\cudnn64_9.dll)
+                        else
+                        {
+                            var archSubDir = Environment.Is64BitProcess ? "x64" : "x86";
+                            var archPath = Path.Combine(cudaVersionDir, archSubDir);
+                            if (Directory.Exists(archPath) && File.Exists(Path.Combine(archPath, cudnnDll)))
+                            {
+                                _cudnnInstallations.Add(new CuDnnInstallation(
+                                    archPath,
+                                    cudnnVersion,
+                                    cudaVersion.Major));
+                            }
                         }
                     }
                 }
