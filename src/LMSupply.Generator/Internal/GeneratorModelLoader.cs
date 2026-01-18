@@ -2,6 +2,7 @@ using LMSupply.Core.Download;
 using LMSupply.Download;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.ChatFormatters;
+using LMSupply.Generator.Models;
 using LMSupply.Runtime;
 
 namespace LMSupply.Generator.Internal;
@@ -12,6 +13,28 @@ namespace LMSupply.Generator.Internal;
 internal static class GeneratorModelLoader
 {
     public static async Task<IGeneratorModel> LoadAsync(
+        string modelId,
+        GeneratorOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        // Detect model format from model ID
+        var format = ModelFormatDetector.Detect(modelId);
+
+        // Route to appropriate loader based on format
+        return format switch
+        {
+            ModelFormat.Gguf => await LoadGgufAsync(modelId, options, progress, cancellationToken),
+            ModelFormat.Onnx => await LoadOnnxAsync(modelId, options, progress, cancellationToken),
+            ModelFormat.Unknown => await LoadOnnxAsync(modelId, options, progress, cancellationToken), // fallback
+            _ => throw new NotSupportedException($"Unsupported model format: {format}")
+        };
+    }
+
+    /// <summary>
+    /// Loads an ONNX GenAI model from HuggingFace.
+    /// </summary>
+    private static async Task<IGeneratorModel> LoadOnnxAsync(
         string modelId,
         GeneratorOptions options,
         IProgress<DownloadProgress>? progress,
@@ -47,7 +70,46 @@ internal static class GeneratorModelLoader
         return await LoadFromPathAsync(modelPath, options, modelId);
     }
 
+    /// <summary>
+    /// Loads a GGUF model from HuggingFace.
+    /// This method is a placeholder for Phase 1-3 implementation.
+    /// </summary>
+    private static Task<IGeneratorModel> LoadGgufAsync(
+        string modelId,
+        GeneratorOptions options,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        // GGUF support will be implemented in Phase 1-3
+        // For now, throw a clear error message
+        throw new NotSupportedException(
+            $"GGUF model format detected for '{modelId}', but GGUF support is not yet implemented. " +
+            "GGUF support is planned for a future release. " +
+            "Please use ONNX format models (e.g., microsoft/Phi-4-mini-instruct-onnx) for now.");
+    }
+
     public static async Task<IGeneratorModel> LoadFromPathAsync(
+        string modelPath,
+        GeneratorOptions options,
+        string? modelId = null)
+    {
+        // Detect model format from path
+        var format = ModelFormatDetector.Detect(modelPath);
+
+        // Route to appropriate loader based on format
+        return format switch
+        {
+            ModelFormat.Gguf => await LoadGgufFromPathAsync(modelPath, options, modelId),
+            ModelFormat.Onnx => await LoadOnnxFromPathAsync(modelPath, options, modelId),
+            ModelFormat.Unknown => await LoadOnnxFromPathAsync(modelPath, options, modelId), // fallback
+            _ => throw new NotSupportedException($"Unsupported model format: {format}")
+        };
+    }
+
+    /// <summary>
+    /// Loads an ONNX GenAI model from a local path.
+    /// </summary>
+    private static async Task<IGeneratorModel> LoadOnnxFromPathAsync(
         string modelPath,
         GeneratorOptions options,
         string? modelId = null)
@@ -70,6 +132,22 @@ internal static class GeneratorModelLoader
             options);
 
         return model;
+    }
+
+    /// <summary>
+    /// Loads a GGUF model from a local path.
+    /// This method is a placeholder for Phase 1-3 implementation.
+    /// </summary>
+    private static Task<IGeneratorModel> LoadGgufFromPathAsync(
+        string modelPath,
+        GeneratorOptions options,
+        string? modelId = null)
+    {
+        // GGUF support will be implemented in Phase 1-3
+        throw new NotSupportedException(
+            $"GGUF model format detected for '{modelPath}', but GGUF support is not yet implemented. " +
+            "GGUF support is planned for a future release. " +
+            "Please use ONNX format models for now.");
     }
 
     /// <summary>
