@@ -1044,14 +1044,15 @@ var options = new GeneratorOptions
 | 1.5 | `NativeLibraryConfig` 자동 설정 | ✅ Done | WithSearchDirectory, WithCuda/Vulkan |
 | 1.6 | 플랫폼별 테스트 | ⏳ Pending | Phase 3 통합 테스트에서 검증 |
 
-### Phase 2: Model Download (5 tasks)
-| # | Task | Priority | Complexity |
-|---|------|----------|------------|
-| 2.1 | `GgufModelDownloader` 구현 | High | Medium |
-| 2.2 | HuggingFace API 파일 목록 | High | Medium |
-| 2.3 | 양자화 자동 선택 | Medium | Low |
-| 2.4 | `GgufModelRegistry` 별칭 | High | Low |
-| 2.5 | 다운로드 진행률 | Low | Low |
+### Phase 2: Model Download ✅ COMPLETED
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| 2.1 | `GgufModelInfo` 레코드 정의 | ✅ Done | 메타데이터, 라이선스 정보 포함 |
+| 2.2 | `GgufModelRegistry` 별칭 등록 | ✅ Done | 8개 모델 (default, fast, quality 등) |
+| 2.3 | `GgufModelDownloader` 구현 | ✅ Done | HuggingFace API, 자동 양자화 선택 |
+| 2.4 | HuggingFace API 파일 목록 조회 | ✅ Done | `/api/models/{repoId}` endpoint |
+| 2.5 | 다운로드 진행률 & 이력서 지원 | ✅ Done | Range header, `.part` 파일 |
+| 2.6 | Unit tests | ✅ Done | `GgufModelRegistryTests.cs` (23 tests) |
 
 ### Phase 3: Inference Engine (5 tasks)
 | # | Task | Priority | Complexity |
@@ -1117,9 +1118,13 @@ var options = new GeneratorOptions
 - [x] NativeLibraryConfig 자동 설정
 - [ ] 실제 바이너리 다운로드 & 로드 통합 테스트 (Phase 3에서 검증)
 
-### Phase 2
-- [ ] HuggingFace GGUF 파일 다운로드
-- [ ] 별칭으로 모델 로드 가능
+### Phase 2 ✅ COMPLETED
+- [x] HuggingFace GGUF 파일 다운로드
+- [x] 별칭으로 모델 로드 가능
+- [x] GgufModelInfo 레코드 정의
+- [x] GgufModelRegistry (8개 별칭: default, fast, quality, large, multilingual, korean, code, reasoning)
+- [x] GgufModelDownloader (자동 양자화 선택, 이력서 다운로드 지원)
+- [x] GgufModelRegistryTests (23개 테스트 통과)
 
 ### Phase 3
 - [ ] 텍스트 생성 스트리밍 동작
