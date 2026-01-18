@@ -65,11 +65,21 @@ public sealed class LlamaRuntimeManager
             // 2. Determine the best backend
             var backend = DetermineBackend(provider, platform, gpu);
 
-            // 3. Download native binaries (if not cached)
-            var binaryPath = await DownloadNativeBinaryAsync(
-                backend, platform, progress, cancellationToken);
+            // 3. Try to download native binaries (if not cached)
+            string? binaryPath = null;
+            try
+            {
+                binaryPath = await DownloadNativeBinaryAsync(
+                    backend, platform, progress, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Download failed - will rely on LLamaSharp.Backend.* packages or system libraries
+                System.Diagnostics.Debug.WriteLine($"[LlamaRuntimeManager] Binary download failed: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine("[LlamaRuntimeManager] Falling back to NuGet package or system libraries");
+            }
 
-            // 4. Configure LLamaSharp to use downloaded binaries
+            // 4. Configure LLamaSharp to use downloaded binaries or fallback
             ConfigureNativeLibrary(binaryPath, backend);
 
             _activeBackend = backend;
@@ -157,13 +167,17 @@ public sealed class LlamaRuntimeManager
     /// <summary>
     /// Configures LLamaSharp to use the downloaded native binaries.
     /// </summary>
-    private static void ConfigureNativeLibrary(string binaryPath, LlamaBackend backend)
+    private static void ConfigureNativeLibrary(string? binaryPath, LlamaBackend backend)
     {
-        // Configure LLamaSharp to search in our download directory
-        NativeLibraryConfig.All.WithSearchDirectory(binaryPath);
+        // Configure LLamaSharp to search in our download directory (if available)
+        if (!string.IsNullOrEmpty(binaryPath) && Directory.Exists(binaryPath))
+        {
+            NativeLibraryConfig.All.WithSearchDirectory(binaryPath);
+        }
 
-        // Disable auto-fallback to prevent searching system paths
-        NativeLibraryConfig.All.WithAutoFallback(false);
+        // Enable auto-fallback to search system paths and NuGet package paths
+        // This allows using LLamaSharp.Backend.* packages as fallback
+        NativeLibraryConfig.All.WithAutoFallback(true);
 
         // Configure backend-specific settings
         switch (backend)
@@ -196,8 +210,11 @@ public sealed class LlamaRuntimeManager
             }
         });
 
-        // Register with NativeLoader for dependency resolution
-        NativeLoader.Instance.RegisterDirectory(binaryPath, preload: true, primaryLibrary: "llama");
+        // Register with NativeLoader for dependency resolution (if we have a binary path)
+        if (!string.IsNullOrEmpty(binaryPath) && Directory.Exists(binaryPath))
+        {
+            NativeLoader.Instance.RegisterDirectory(binaryPath, preload: true, primaryLibrary: "llama");
+        }
     }
 
     /// <summary>

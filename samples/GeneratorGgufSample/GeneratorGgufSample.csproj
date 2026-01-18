@@ -12,4 +12,14 @@
     <ProjectReference Include="..\..\src\LMSupply.Generator\LMSupply.Generator.csproj" />
   </ItemGroup>
 
+  <!-- LLamaSharp native backend for running GGUF models -->
+  <ItemGroup>
+    <PackageReference Include="LLamaSharp.Backend.Cpu" />
+  </ItemGroup>
+
+  <!-- Optional: Enable CUDA backend for NVIDIA GPU acceleration -->
+  <ItemGroup Condition="'$(EnableCuda)' == 'true'">
+    <PackageReference Include="LLamaSharp.Backend.Cuda12" />
+  </ItemGroup>
+
 </Project>
