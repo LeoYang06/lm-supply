@@ -247,7 +247,8 @@ public sealed class LlamaNuGetDownloader : IDisposable
                           platform.IsMacOS ? "libllama.dylib" :
                           "libllama.so";
 
-        return Directory.EnumerateFiles(path, expectedLib + "*").Any();
+        // Search recursively including subdirectories (avx/, avx2/, avx512/, noavx/)
+        return Directory.EnumerateFiles(path, expectedLib, SearchOption.AllDirectories).Any();
     }
 
     private async Task DownloadFileAsync(
