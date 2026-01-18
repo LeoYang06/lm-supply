@@ -291,29 +291,34 @@ public sealed class GgufModelDownloader : IDisposable
             startPosition = 0; // Full download
         }
 
-        // Download with progress
-        await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var fileMode = startPosition > 0 ? FileMode.Append : FileMode.Create;
-        await using var fileStream = new FileStream(tempPath, fileMode, FileAccess.Write, FileShare.None, 81920, true);
-
-        var buffer = new byte[81920];
-        long bytesDownloaded = startPosition;
-        int bytesRead;
-
-        while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
+        // Download with progress - use explicit block to ensure streams are closed before File.Move
         {
-            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-            bytesDownloaded += bytesRead;
+            await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var fileMode = startPosition > 0 ? FileMode.Append : FileMode.Create;
+            await using var fileStream = new FileStream(tempPath, fileMode, FileAccess.Write, FileShare.None, 81920, true);
 
-            progress?.Report(new DownloadProgress
+            var buffer = new byte[81920];
+            long bytesDownloaded = startPosition;
+            int bytesRead;
+
+            while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
             {
-                FileName = filename,
-                BytesDownloaded = bytesDownloaded,
-                TotalBytes = totalBytes
-            });
+                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+                bytesDownloaded += bytesRead;
+
+                progress?.Report(new DownloadProgress
+                {
+                    FileName = filename,
+                    BytesDownloaded = bytesDownloaded,
+                    TotalBytes = totalBytes
+                });
+            }
+
+            // Ensure data is flushed to disk
+            await fileStream.FlushAsync(cancellationToken);
         }
 
-        // Move to final location
+        // Move to final location (streams are now closed)
         File.Move(tempPath, destinationPath, overwrite: true);
     }
 
