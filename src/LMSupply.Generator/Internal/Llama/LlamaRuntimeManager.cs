@@ -125,6 +125,7 @@ public sealed class LlamaRuntimeManager
 
         if (gpu.Vendor == GpuVendor.Nvidia)
         {
+            // NVIDIA GPU - use CUDA (most reliable for llama.cpp)
             if (gpu.CudaDriverVersionMajor >= 13)
                 return LlamaBackend.Cuda13;
             if (gpu.CudaDriverVersionMajor >= 12)
@@ -133,17 +134,14 @@ public sealed class LlamaRuntimeManager
 
         if (gpu.Vendor == GpuVendor.Amd && !platform.IsMacOS)
         {
-            // AMD GPU on Windows/Linux - try Vulkan
-            return LlamaBackend.Vulkan;
+            // AMD discrete GPU - try Vulkan (but may be unstable)
+            // Only use if explicitly requested via ExecutionProvider
+            // For auto mode, prefer CPU for stability
         }
 
-        if (gpu.DirectMLSupported && platform.IsWindows)
-        {
-            // Windows with DirectX 12 - use Vulkan (better llama.cpp support than DirectML)
-            return LlamaBackend.Vulkan;
-        }
-
-        // Default to CPU
+        // Intel integrated GPUs and other cases - use CPU for stability
+        // Intel Iris Xe, Intel UHD, etc. often have issues with Vulkan backend
+        // CPU backend is well-optimized with AVX2/AVX512 support
         return LlamaBackend.Cpu;
     }
 
