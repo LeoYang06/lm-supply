@@ -345,13 +345,19 @@ public sealed class LlamaRuntimeManager : IAsyncDisposable
         sb.AppendLine($"Platform: {platform.OS} {platform.Architecture}");
         sb.AppendLine($"Runtime ID: {platform.RuntimeIdentifier}");
 
-        // GPU info
-        if (gpu.Vendor != GpuVendor.Unknown)
+        // GPU info - check for discrete GPU or DirectML/CoreML support
+        var hasGpu = gpu.Vendor != GpuVendor.Unknown || gpu.DirectMLSupported || gpu.CoreMLSupported;
+        if (hasGpu)
         {
             sb.AppendLine($"GPU: {gpu.DeviceName ?? gpu.Vendor.ToString()}");
             if (gpu.TotalMemoryMB.HasValue)
                 sb.AppendLine($"VRAM: {gpu.TotalMemoryMB.Value / 1024.0:F1} GB");
-            sb.AppendLine($"GPU Vendor: {gpu.Vendor}");
+            if (gpu.Vendor != GpuVendor.Unknown)
+                sb.AppendLine($"GPU Vendor: {gpu.Vendor}");
+            if (gpu.DirectMLSupported)
+                sb.AppendLine("DirectML: Supported");
+            if (gpu.CoreMLSupported)
+                sb.AppendLine("CoreML: Supported");
             if (gpu.CudaDriverVersionMajor.HasValue)
                 sb.AppendLine($"CUDA Driver: {gpu.CudaDriverVersionMajor}.{gpu.CudaDriverVersionMinor}");
         }
@@ -373,6 +379,12 @@ public sealed class LlamaRuntimeManager : IAsyncDisposable
         // Recommended fallback chain
         var fallbackChain = GetBackendFallbackChain(platform, gpu);
         sb.AppendLine($"Recommended Backends: {string.Join(" → ", fallbackChain)}");
+
+        // Note about llama.cpp limitations
+        if (gpu.DirectMLSupported && gpu.Vendor == GpuVendor.Unknown)
+        {
+            sb.AppendLine("Note: llama.cpp does not support DirectML. Using CPU for GGUF models.");
+        }
 
         return sb.ToString().TrimEnd();
     }
