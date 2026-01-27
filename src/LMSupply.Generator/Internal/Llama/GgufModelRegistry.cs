@@ -1,3 +1,5 @@
+using LMSupply.Hardware;
+
 namespace LMSupply.Generator.Internal.Llama;
 
 /// <summary>
@@ -136,12 +138,16 @@ public static class GgufModelRegistry
     /// Resolves an alias to model information.
     /// Supports both "gguf:alias" format and plain "alias" format.
     /// </summary>
-    /// <param name="aliasOrRepoId">The alias (e.g., "gguf:default", "default") or full repo ID.</param>
+    /// <param name="aliasOrRepoId">The alias (e.g., "gguf:default", "default", "gguf:auto") or full repo ID.</param>
     /// <returns>Model information if found, null otherwise.</returns>
     public static GgufModelInfo? Resolve(string aliasOrRepoId)
     {
         if (string.IsNullOrWhiteSpace(aliasOrRepoId))
             return null;
+
+        // Handle "gguf:auto" alias - select optimal model based on hardware
+        if (aliasOrRepoId.Equals("gguf:auto", StringComparison.OrdinalIgnoreCase))
+            return GetAutoModel();
 
         // Try direct lookup with gguf: prefix
         if (_models.TryGetValue(aliasOrRepoId, out var info))
@@ -158,6 +164,29 @@ public static class GgufModelRegistry
     }
 
     /// <summary>
+    /// Gets the optimal GGUF model based on current hardware profile.
+    /// </summary>
+    /// <remarks>
+    /// Model selection based on performance tier:
+    /// - Ultra: Qwen 2.5 14B (highest quality, needs 16GB+ VRAM)
+    /// - High: Qwen 2.5 7B (quality model, 8-16GB VRAM)
+    /// - Medium: Llama 3.2 3B (balanced, 4-8GB VRAM)
+    /// - Low: Llama 3.2 1B (fast, minimal resources)
+    /// </remarks>
+    public static GgufModelInfo GetAutoModel()
+    {
+        var tier = HardwareProfile.Current.Tier;
+
+        return tier switch
+        {
+            PerformanceTier.Ultra => _models["gguf:large"],    // Qwen 2.5 14B
+            PerformanceTier.High => _models["gguf:quality"],   // Qwen 2.5 7B
+            PerformanceTier.Medium => _models["gguf:default"], // Llama 3.2 3B
+            _ => _models["gguf:fast"]                          // Llama 3.2 1B
+        };
+    }
+
+    /// <summary>
     /// Gets all registered GGUF models.
     /// </summary>
     public static IReadOnlyList<GgufModelInfo> GetAllModels() =>
@@ -171,7 +200,7 @@ public static class GgufModelRegistry
 
     /// <summary>
     /// Checks if a string is a known GGUF alias.
-    /// Only matches "gguf:"-prefixed aliases (e.g., "gguf:default", "gguf:fast").
+    /// Only matches "gguf:"-prefixed aliases (e.g., "gguf:default", "gguf:fast", "gguf:auto").
     /// Plain aliases like "default" or "fast" are reserved for ONNX models.
     /// </summary>
     public static bool IsAlias(string value)
@@ -181,13 +210,23 @@ public static class GgufModelRegistry
 
         // Only match if it starts with "gguf:" prefix
         // Plain aliases without prefix are reserved for ONNX ModelRegistry
-        return value.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase) &&
-               _models.ContainsKey(value);
+        if (!value.StartsWith("gguf:", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Handle "gguf:auto" special alias
+        if (value.Equals("gguf:auto", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return _models.ContainsKey(value);
     }
 
     /// <summary>
-    /// Gets all available alias names.
+    /// Gets all available alias names including "gguf:auto".
     /// </summary>
-    public static IReadOnlyList<string> GetAliases() =>
-        _models.Keys.ToList();
+    public static IReadOnlyList<string> GetAliases()
+    {
+        var aliases = new List<string> { "gguf:auto" };
+        aliases.AddRange(_models.Keys);
+        return aliases;
+    }
 }

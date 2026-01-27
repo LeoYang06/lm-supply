@@ -29,4 +29,11 @@ public sealed class GeneratorOptions : LMSupplyOptionsBase
     /// Defaults to 1 (sequential processing) for stability.
     /// </summary>
     public int MaxConcurrentRequests { get; set; } = 1;
+
+    /// <summary>
+    /// Gets or sets advanced options for GGUF model loading via LLamaSharp.
+    /// If null, optimal settings are automatically determined based on hardware.
+    /// Only applies to GGUF models (gguf:* aliases or .gguf files).
+    /// </summary>
+    public LlamaOptions? LlamaOptions { get; set; }
 }

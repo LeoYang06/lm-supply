@@ -295,6 +295,7 @@ await foreach (var token in model.GenerateAsync("Hello, my name is"))
 
 | Alias | Model | Parameters | Use Case |
 |-------|-------|------------|----------|
+| `gguf:auto` | Hardware-optimized | varies | Auto-select by hardware |
 | `gguf:default` | Llama 3.2 3B Instruct | 3B | Balanced quality/speed |
 | `gguf:fast` | Llama 3.2 1B Instruct | 1B | Quick responses |
 | `gguf:quality` | Qwen 2.5 7B Instruct | 7B | Higher quality |
@@ -304,18 +305,46 @@ await foreach (var token in model.GenerateAsync("Hello, my name is"))
 | `gguf:code` | Qwen 2.5 Coder 7B | 7B | Coding tasks |
 | `gguf:reasoning` | DeepSeek R1 Distill 8B | 8B | Complex reasoning |
 
-### Using HuggingFace GGUF Repositories
+#### Hardware-Optimized Selection (`gguf:auto`)
+
+Use `gguf:auto` for automatic model selection based on your hardware:
+
+| Performance Tier | Hardware | Selected Model |
+|------------------|----------|----------------|
+| **Low** | CPU only or GPU <4GB | Llama 3.2 1B |
+| **Medium** | GPU 4-8GB | Llama 3.2 3B |
+| **High** | GPU 8-16GB | Qwen 2.5 7B |
+| **Ultra** | GPU 16GB+ | Qwen 2.5 14B |
 
 ```csharp
-// Load from any GGUF repository
+// Let LMSupply choose the optimal model for your hardware
+await using var model = await LocalGenerator.LoadAsync("gguf:auto");
+```
+
+### Using HuggingFace GGUF Repositories
+
+Load any GGUF model directly with `owner/repo-name` format:
+
+```csharp
+// Load from any GGUF repository (auto-detected by -GGUF suffix)
 await using var model = await LocalGenerator.LoadAsync(
     "bartowski/Llama-3.2-3B-Instruct-GGUF");
 
-// Specify a particular quantization
+// Other popular repositories
+await using var model = await LocalGenerator.LoadAsync("bartowski/Qwen2.5-7B-Instruct-GGUF");
+await using var model = await LocalGenerator.LoadAsync("bartowski/gemma-2-9b-it-GGUF");
+await using var model = await LocalGenerator.LoadAsync("bartowski/EXAONE-3.5-7.8B-Instruct-GGUF");
+
+// Specify a particular quantization file
 await using var model = await LocalGenerator.LoadAsync(
     "bartowski/Qwen2.5-7B-Instruct-GGUF",
-    new GeneratorOptions { GgufFileName = "Qwen2.5-7B-Instruct-Q4_K_M.gguf" });
+    new GeneratorOptions { GgufFileName = "Qwen2.5-7B-Instruct-Q5_K_M.gguf" });
 ```
+
+The system automatically:
+- Detects GGUF repositories by `-GGUF` or `_gguf` suffix in repo name
+- Selects the optimal quantization file (Q4_K_M by default)
+- Downloads and caches the model for reuse
 
 ### GGUF Configuration Options
 
@@ -323,19 +352,176 @@ await using var model = await LocalGenerator.LoadAsync(
 var options = new GeneratorOptions
 {
     // Context length (default: from model metadata)
-    MaxContextLength = 4096,
-
-    // GPU layers (0 = CPU only, -1 = all layers on GPU)
-    GpuLayerCount = -1,
-
-    // Batch size for prompt processing
-    BatchSize = 512,
-
-    // Number of threads for CPU inference
-    ThreadCount = 8
+    MaxContextLength = 4096
 };
 
 await using var model = await LocalGenerator.LoadAsync("gguf:default", options);
+```
+
+### Advanced GGUF Options (LlamaOptions)
+
+For fine-grained control over llama.cpp behavior:
+
+```csharp
+var options = new GeneratorOptions
+{
+    MaxContextLength = 8192,
+    LlamaOptions = new LlamaOptions
+    {
+        // GPU layer offloading (-1 = all on GPU, 0 = CPU only, N = N layers)
+        GpuLayerCount = -1,
+
+        // Batch size for prompt processing (default: 512)
+        BatchSize = 1024,
+
+        // Physical batch size for memory control (must be <= BatchSize)
+        UBatchSize = 512,
+
+        // Enable Flash Attention for better performance (requires compatible GPU)
+        FlashAttention = true,
+
+        // KV cache quantization for memory savings
+        TypeK = KvCacheQuantizationType.Q8_0,  // ~50% KV cache memory reduction
+        TypeV = KvCacheQuantizationType.Q8_0,
+
+        // Memory mapping for faster model loading
+        UseMemoryMap = true,
+
+        // Lock model in memory to prevent swapping
+        UseMemoryLock = false,
+
+        // RoPE frequency settings for context extension
+        RopeFrequencyBase = null,
+        RopeFrequencyScale = null,
+
+        // Multi-GPU: select primary GPU (0-based index)
+        MainGpu = 0,
+
+        // CPU thread count (default: auto-detected)
+        Threads = null
+    }
+};
+
+await using var model = await LocalGenerator.LoadAsync("gguf:quality", options);
+```
+
+#### KV Cache Quantization
+
+Quantizing the KV (Key-Value) cache significantly reduces memory usage with minimal quality impact:
+
+| Type | Memory Savings | Quality Impact |
+|------|----------------|----------------|
+| `F16` (default) | 0% | Best |
+| `Q8_0` | ~50% | Minimal |
+| `Q4_0` | ~75% | Noticeable on long contexts |
+| `F32` | -100% (increases) | Identical to F16 |
+
+```csharp
+// Example: Large context with aggressive memory optimization
+var options = new GeneratorOptions
+{
+    MaxContextLength = 32768,
+    LlamaOptions = new LlamaOptions
+    {
+        TypeK = KvCacheQuantizationType.Q4_0,
+        TypeV = KvCacheQuantizationType.Q4_0,
+        BatchSize = 2048,
+        UBatchSize = 256
+    }
+};
+```
+
+#### Automatic Hardware Optimization
+
+If `LlamaOptions` is not specified, LMSupply automatically configures optimal settings:
+
+```csharp
+// LlamaOptions.GetOptimalForHardware() is called internally
+var autoOptions = LlamaOptions.GetOptimalForHardware();
+```
+
+| Tier | BatchSize | UBatchSize | FlashAttention | TypeK/TypeV | GpuLayerCount |
+|------|-----------|------------|----------------|-------------|---------------|
+| Ultra | 2048 | 512 | true | Q8_0 | -1 (all GPU) |
+| High | 1024 | 512 | true | Q8_0 | -1 (all GPU) |
+| Medium | 512 | 256 | false | Q4_0 | -1 (all GPU) |
+| Low | 256 | 128 | false | F16 | 0 (CPU only) |
+
+### Performance Tuning Guide
+
+#### Maximum Throughput
+
+For highest tokens/second on capable hardware:
+
+```csharp
+var options = new GeneratorOptions
+{
+    LlamaOptions = new LlamaOptions
+    {
+        GpuLayerCount = -1,      // All layers on GPU
+        BatchSize = 2048,         // Large batch for throughput
+        UBatchSize = 512,         // Balanced physical batch
+        FlashAttention = true,    // Faster attention computation
+        UseMemoryMap = true       // Faster model loading
+    }
+};
+```
+
+#### Minimum Memory Footprint
+
+For systems with limited VRAM:
+
+```csharp
+var options = new GeneratorOptions
+{
+    MaxContextLength = 4096,     // Limit context for memory
+    LlamaOptions = new LlamaOptions
+    {
+        TypeK = KvCacheQuantizationType.Q4_0,  // Aggressive KV quantization
+        TypeV = KvCacheQuantizationType.Q4_0,
+        BatchSize = 256,          // Smaller batch size
+        UBatchSize = 128,
+        FlashAttention = false    // May save memory on some GPUs
+    }
+};
+```
+
+#### Long Context Processing
+
+For handling long documents (8K+ tokens):
+
+```csharp
+var options = new GeneratorOptions
+{
+    MaxContextLength = 32768,
+    LlamaOptions = new LlamaOptions
+    {
+        TypeK = KvCacheQuantizationType.Q8_0,  // Balance memory/quality
+        TypeV = KvCacheQuantizationType.Q8_0,
+        BatchSize = 2048,
+        UBatchSize = 512,
+        RopeFrequencyBase = 1000000f  // For YaRN-scaled models
+    }
+};
+```
+
+#### CPU-Only Systems
+
+For systems without GPU acceleration:
+
+```csharp
+var options = new GeneratorOptions
+{
+    Provider = ExecutionProvider.Cpu,
+    LlamaOptions = new LlamaOptions
+    {
+        GpuLayerCount = 0,
+        Threads = Environment.ProcessorCount,  // Use all CPU cores
+        BatchSize = 512,
+        UseMemoryMap = true,
+        UseMemoryLock = true   // Prevent swapping (requires privileges)
+    }
+};
 ```
 
 ### Chat Generation with GGUF
@@ -443,6 +629,30 @@ Console.WriteLine($"Provider: {info.ExecutionProvider}");  // "LLamaSharp"
 | GPU support | CUDA, Metal | CUDA, DirectML, CoreML |
 | Memory efficiency | Good | Good |
 | Inference speed | Fast | Fast |
+
+## Known Issues
+
+### ONNX GenAI Memory Leak Warnings
+
+When using ONNX models, you may see stderr warnings like:
+
+```
+OGA Error: 1 instances of struct Generators::Model were leaked.
+OGA Error: 1 instances of struct Generators::Tokenizer were leaked.
+```
+
+**This is a known upstream issue** in Microsoft's ONNX Runtime GenAI library, particularly affecting the DirectML backend. The warnings indicate internal resource tracking but **do not affect functionality**.
+
+**Relevant upstream issues:**
+- [microsoft/onnxruntime-genai#590](https://github.com/microsoft/onnxruntime-genai/issues/590) - Memory leak during back-to-back inferences
+- [microsoft/onnxruntime-genai#1677](https://github.com/microsoft/onnxruntime-genai/issues/1677) - Memory Leak on CUDA
+
+**Workarounds:**
+1. The warnings can be safely ignored for most use cases
+2. For long-running applications, consider periodic process restarts
+3. GGUF models (via LLamaSharp) do not exhibit this issue
+
+**Status:** Tracking upstream fixes. LMSupply will update when OGA releases a fix.
 
 ## Requirements
 

@@ -90,7 +90,11 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         await _concurrencyLimiter.WaitAsync(cancellationToken);
         try
         {
-            var sequences = _tokenizer.Encode(prompt);
+            // NOTE: OGA has known memory leak issues, particularly with DirectML backend.
+            // Even with proper disposal, some internal resources may not be fully released.
+            // See: https://github.com/microsoft/onnxruntime-genai/issues/590
+            // See: https://github.com/microsoft/onnxruntime-genai/issues/1677
+            using var sequences = _tokenizer.Encode(prompt);
 
             // Use MaxContextLength as the upper bound for max_length
             // This allows the model to use its full context capacity
@@ -319,6 +323,17 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
+    /// <summary>
+    /// Disposes the model and releases all resources.
+    /// </summary>
+    /// <remarks>
+    /// NOTE: Due to known OGA memory leak issues (particularly with DirectML), you may see
+    /// "OGA Error: N instances of struct X were leaked" warnings even after proper disposal.
+    /// This is an upstream issue being tracked at:
+    /// - https://github.com/microsoft/onnxruntime-genai/issues/590
+    /// - https://github.com/microsoft/onnxruntime-genai/issues/1677
+    /// These warnings do not affect functionality.
+    /// </remarks>
     public ValueTask DisposeAsync()
     {
         if (_disposed)
@@ -327,6 +342,8 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         }
 
         _disposed = true;
+
+        // Dispose in reverse order of creation to avoid orphaned references
         _concurrencyLimiter.Dispose();
         _tokenizer.Dispose();
         _model.Dispose();

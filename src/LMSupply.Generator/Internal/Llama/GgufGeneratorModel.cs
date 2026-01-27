@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using LLama;
 using LLama.Common;
+using LLama.Native;
 using LLama.Sampling;
 using LMSupply.Download;
 using LMSupply.Generator.Abstractions;
@@ -84,16 +85,39 @@ internal sealed class GgufGeneratorModel : IGeneratorModel
             TotalBytes = 100
         });
 
-        // 2. Configure model parameters
+        // 2. Configure model parameters with LlamaOptions
         var contextLength = (uint)(options.MaxContextLength ?? 4096);
-        var gpuLayers = CalculateGpuLayers(options.Provider);
+        var llamaOpts = options.LlamaOptions ?? LlamaOptions.GetOptimalForHardware();
 
         var modelParams = new ModelParams(modelPath)
         {
             ContextSize = contextLength,
-            GpuLayerCount = gpuLayers,
-            BatchSize = 512
+            GpuLayerCount = llamaOpts.GpuLayerCount ?? CalculateGpuLayers(options.Provider),
+            BatchSize = llamaOpts.BatchSize ?? 512,
+            UBatchSize = llamaOpts.UBatchSize ?? Math.Min(512, llamaOpts.BatchSize ?? 512),
+            UseMemorymap = llamaOpts.UseMemoryMap ?? true,
+            UseMemoryLock = llamaOpts.UseMemoryLock ?? false,
+            MainGpu = llamaOpts.MainGpu ?? 0,
+            FlashAttention = llamaOpts.FlashAttention ?? false
         };
+
+        // Apply KV cache quantization types for memory savings
+        if (llamaOpts.TypeK.HasValue)
+            modelParams.TypeK = ToGGMLType(llamaOpts.TypeK.Value);
+
+        if (llamaOpts.TypeV.HasValue)
+            modelParams.TypeV = ToGGMLType(llamaOpts.TypeV.Value);
+
+        // Apply RoPE frequency settings if specified
+        if (llamaOpts.RopeFrequencyBase.HasValue)
+            modelParams.RopeFrequencyBase = llamaOpts.RopeFrequencyBase.Value;
+
+        if (llamaOpts.RopeFrequencyScale.HasValue)
+            modelParams.RopeFrequencyScale = llamaOpts.RopeFrequencyScale.Value;
+
+        // Apply thread count if specified
+        if (llamaOpts.Threads.HasValue)
+            modelParams.Threads = (int)llamaOpts.Threads.Value;
 
         // 3. Load model weights
         progress?.Report(new DownloadProgress
@@ -375,6 +399,18 @@ internal sealed class GgufGeneratorModel : IGeneratorModel
             ExecutionProvider.DirectML => 0, // DirectML uses different API
             ExecutionProvider.CoreML => -1,
             _ => -1
+        };
+    }
+
+    private static GGMLType ToGGMLType(KvCacheQuantizationType type)
+    {
+        return type switch
+        {
+            KvCacheQuantizationType.F16 => GGMLType.GGML_TYPE_F16,
+            KvCacheQuantizationType.Q8_0 => GGMLType.GGML_TYPE_Q8_0,
+            KvCacheQuantizationType.Q4_0 => GGMLType.GGML_TYPE_Q4_0,
+            KvCacheQuantizationType.F32 => GGMLType.GGML_TYPE_F32,
+            _ => GGMLType.GGML_TYPE_F16
         };
     }
 

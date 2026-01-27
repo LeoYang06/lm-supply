@@ -17,8 +17,14 @@ GPU acceleration is **automatic** — LMSupply detects your hardware and downloa
 ```csharp
 using LMSupply.Embedder;
 
-// Load the default model (ONNX)
+// Load using alias (recommended)
 await using var model = await LocalEmbedder.LoadAsync("default");
+
+// Or use "auto" for hardware-optimized model selection
+await using var model = await LocalEmbedder.LoadAsync("auto");
+
+// Or load directly from HuggingFace with owner/repo-name format
+await using var model = await LocalEmbedder.LoadAsync("BAAI/bge-large-en-v1.5");
 
 // Generate a single embedding
 float[] embedding = await model.EmbedAsync("Hello, world!");
@@ -36,17 +42,25 @@ float[][] embeddings = await model.EmbedAsync(new[]
 
 | Alias | Model | Dimensions | Params | Context | Best For |
 |-------|-------|------------|--------|---------|----------|
+| `auto` | Hardware-optimized | varies | varies | varies | Auto-select by hardware |
 | `default` | bge-small-en-v1.5 | 384 | 33M | 512 | Balanced speed/quality |
 | `fast` | all-MiniLM-L6-v2 | 384 | 22M | 256 | Ultra-low latency |
-| `quality` | bge-base-en-v1.5 | 768 | 110M | 512 | Higher accuracy |
+| `quality` | gte-base-en-v1.5 | 768 | 109M | 8192 | Higher accuracy, long context |
 | `large` | nomic-embed-text-v1.5 | 768 | 137M | 8192 | Long context RAG |
-| `multilingual` | multilingual-e5-base | 768 | 278M | 512 | 100+ languages |
+| `multilingual` | bge-m3 | 1024 | 568M | 8192 | 100+ languages, SOTA |
 
-You can also use any HuggingFace ONNX embedding model by its full ID:
+### Using HuggingFace Repository ID
+
+You can load any HuggingFace ONNX embedding model directly with `owner/repo-name` format:
 
 ```csharp
-var model = await LocalEmbedder.LoadAsync("sentence-transformers/all-MiniLM-L12-v2");
+// Load by HuggingFace repository ID
+await using var model = await LocalEmbedder.LoadAsync("BAAI/bge-large-en-v1.5");
+await using var model = await LocalEmbedder.LoadAsync("sentence-transformers/all-MiniLM-L12-v2");
+await using var model = await LocalEmbedder.LoadAsync("intfloat/multilingual-e5-large");
 ```
+
+The system automatically discovers the ONNX files in the repository.
 
 ## GGUF Models (via LLamaSharp)
 
@@ -85,10 +99,10 @@ await using var model = await LocalEmbedder.LoadAsync("/path/to/embedding-model.
 
 ## Multilingual Support
 
-For non-English text, use the `multilingual` model which supports 100+ languages:
+For non-English text, use the `multilingual` model (BGE-M3) which supports 100+ languages with 8K context:
 
 ```csharp
-// Load multilingual model
+// Load multilingual model (BGE-M3 - SOTA multilingual embedding)
 await using var model = await LocalEmbedder.LoadAsync("multilingual");
 
 // Korean text embedding
@@ -103,6 +117,8 @@ float[] chineseEmbedding = await model.EmbedAsync("你好，世界！");
 // Cross-lingual similarity works!
 float similarity = LocalEmbedder.CosineSimilarity(koreanEmbedding, japaneseEmbedding);
 ```
+
+BGE-M3 produces 1024-dimensional embeddings and supports passages up to 8192 tokens, making it ideal for long multilingual documents.
 
 ## Configuration Options
 

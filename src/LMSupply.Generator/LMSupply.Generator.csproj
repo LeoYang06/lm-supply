@@ -27,6 +27,10 @@
     <!-- ONNX Runtime GenAI - CPU only by default, GPU packages installed separately -->
     <!-- ExcludeAssets="native" ensures native binaries are downloaded on-demand via RuntimeManager -->
     <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" ExcludeAssets="native" />
+
+    <!-- LLamaSharp for GGUF model types (GGmlType, etc.) -->
+    <!-- Native binaries are managed via LMSupply.Llama/LlamaRuntimeManager -->
+    <PackageReference Include="LLamaSharp" ExcludeAssets="native" />
   </ItemGroup>
 
   <ItemGroup>

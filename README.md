@@ -219,7 +219,7 @@ Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
 
 ## Available Models
 
-*Updated: 2025-12 based on MTEB leaderboard and community benchmarks*
+*Updated: 2026-01 based on MTEB leaderboard and community benchmarks*
 
 ### Embedder (ONNX)
 
@@ -229,7 +229,7 @@ Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
 | `fast` | all-MiniLM-L6-v2 | 384 | 22M | 256 | Ultra-low latency |
 | `quality` | bge-base-en-v1.5 | 768 | 110M | 512 | Higher accuracy |
 | `large` | nomic-embed-text-v1.5 | 768 | 137M | 8192 | Long context RAG |
-| `multilingual` | multilingual-e5-base | 768 | 278M | 512 | 100+ languages |
+| `multilingual` | bge-m3 | 1024 | 568M | 8192 | 100+ languages, SOTA |
 
 ### Embedder (GGUF via LLamaSharp)
 
@@ -266,6 +266,7 @@ GGUF models are auto-detected by `-GGUF` or `_gguf` in repo name, or `.gguf` fil
 
 | Alias | Model | Params | Context | Best For |
 |-------|-------|--------|---------|----------|
+| `gguf:auto` | Hardware-optimized | varies | varies | Auto-select by hardware |
 | `gguf:default` | Llama 3.2 3B Instruct | 3B | 8K | Balanced quality/speed |
 | `gguf:fast` | Llama 3.2 1B Instruct | 1B | 8K | Quick responses |
 | `gguf:quality` | Qwen 2.5 7B Instruct | 7B | 32K | Higher quality |
@@ -315,11 +316,14 @@ Use `"auto"` to let LMSupply select the optimal model based on your hardware:
 ```csharp
 // Hardware-optimized model selection
 await using var embedder = await LocalEmbedder.LoadAsync("auto");
-await using var generator = await LocalGenerator.LoadAsync("auto");
+await using var generator = await LocalGenerator.LoadAsync("auto");      // ONNX
+await using var ggufModel = await LocalGenerator.LoadAsync("gguf:auto"); // GGUF
 await using var reranker = await LocalReranker.LoadAsync("auto");
 ```
 
 LMSupply detects your hardware and selects models accordingly:
+
+### ONNX Models
 
 | Performance Tier | Hardware | Embedder | Generator | Reranker |
 |------------------|----------|----------|-----------|----------|
@@ -327,6 +331,15 @@ LMSupply detects your hardware and selects models accordingly:
 | **Medium** | GPU 4-8GB | bge-base (110M) | Phi-3.5-mini | bge-reranker-base |
 | **High** | GPU 8-16GB | gte-large (434M) | Phi-4-mini | bge-reranker-large |
 | **Ultra** | GPU 16GB+ | gte-large (434M) | Phi-4 (14B) | bge-reranker-large |
+
+### GGUF Models (via `gguf:auto`)
+
+| Performance Tier | Hardware | GGUF Generator |
+|------------------|----------|----------------|
+| **Low** | CPU only or GPU <4GB | Llama 3.2 1B |
+| **Medium** | GPU 4-8GB | Llama 3.2 3B |
+| **High** | GPU 8-16GB | Qwen 2.5 7B |
+| **Ultra** | GPU 16GB+ | Qwen 2.5 14B |
 
 **Key benefits:**
 - **Zero configuration** - Just use `"auto"`, no hardware research needed
@@ -415,24 +428,58 @@ var embeddings = await Task.WhenAll(tasks);
 
 ---
 
-## Custom Models
+## Loading Models
 
-LMSupply supports any HuggingFace repository with ONNX models through automatic file discovery:
+LMSupply supports three ways to specify models:
+
+### 1. Aliases (Recommended for beginners)
+
+Use predefined aliases for quick access to popular models:
 
 ```csharp
-// Use any HuggingFace ONNX model repository
-await using var embedder = await LocalEmbedder.LoadAsync("my-org/my-custom-embedder");
-await using var captioner = await LocalCaptioner.LoadAsync("my-org/my-vision-model");
-var generator = await LocalGenerator.LoadAsync("my-org/my-llm-onnx");
+await using var embedder = await LocalEmbedder.LoadAsync("default");      // bge-small-en-v1.5
+await using var embedder = await LocalEmbedder.LoadAsync("multilingual"); // bge-m3
+await using var generator = await LocalGenerator.LoadAsync("gguf:auto");  // Hardware-optimized
+await using var generator = await LocalGenerator.LoadAsync("gguf:code");  // Qwen 2.5 Coder
+```
+
+### 2. HuggingFace Repository ID (Full control)
+
+Use any HuggingFace repository directly with `owner/repo-name` format:
+
+```csharp
+// ONNX models - auto-discovers onnx/ subfolder
+await using var embedder = await LocalEmbedder.LoadAsync("BAAI/bge-large-en-v1.5");
+await using var reranker = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3");
+
+// GGUF models - auto-detected by repo name pattern (-GGUF, _gguf)
+await using var generator = await LocalGenerator.LoadAsync("bartowski/Llama-3.2-3B-Instruct-GGUF");
+await using var generator = await LocalGenerator.LoadAsync("bartowski/Qwen2.5-Coder-7B-Instruct-GGUF");
+
+// Vision models
+await using var captioner = await LocalCaptioner.LoadAsync("microsoft/Florence-2-base");
+await using var detector = await LocalDetector.LoadAsync("onnx-community/yolov8s");
 ```
 
 The system automatically:
 - Discovers ONNX files via HuggingFace API
 - Detects subfolder structure (`onnx/`, `cpu/`, `cuda/`)
-- Selects appropriate quantization variants
+- Selects appropriate quantization variants (Q4_K_M for GGUF)
 - Downloads required tokenizer and config files
 
-For private repositories, set the `HF_TOKEN` environment variable.
+### 3. Local Path
+
+Use locally stored models:
+
+```csharp
+// ONNX model directory
+await using var embedder = await LocalEmbedder.LoadAsync("/path/to/model-directory");
+
+// GGUF file directly
+await using var generator = await LocalGenerator.LoadAsync("/path/to/model.gguf");
+```
+
+For private HuggingFace repositories, set the `HF_TOKEN` environment variable.
 
 ---
 

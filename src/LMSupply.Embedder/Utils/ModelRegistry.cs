@@ -53,12 +53,12 @@ internal static class ModelRegistry
         },
         ["multilingual"] = new ModelInfo
         {
-            RepoId = "intfloat/multilingual-e5-base",
-            Dimensions = 768,
-            MaxSequenceLength = 512,
-            PoolingMode = PoolingMode.Mean,
+            RepoId = "BAAI/bge-m3",
+            Dimensions = 1024,
+            MaxSequenceLength = 8192,
+            PoolingMode = PoolingMode.Cls,
             DoLowerCase = false,
-            Description = "Multilingual: E5 Base, 278M params, 100+ languages",
+            Description = "Multilingual: BGE-M3, 568M params, 100+ languages, 8K context, SOTA multilingual",
             Subfolder = "onnx"
         },
 
@@ -192,6 +192,17 @@ internal static class ModelRegistry
             PoolingMode = PoolingMode.Cls,
             DoLowerCase = false,
             Description = "434M params, 8K context, highest accuracy GTE",
+            Subfolder = "onnx"
+        },
+        // BGE-M3 (2024-2025 SOTA multilingual model)
+        ["bge-m3"] = new ModelInfo
+        {
+            RepoId = "BAAI/bge-m3",
+            Dimensions = 1024,
+            MaxSequenceLength = 8192,
+            PoolingMode = PoolingMode.Cls,
+            DoLowerCase = false,
+            Description = "568M params, 100+ languages, 8K context, SOTA multilingual embedding",
             Subfolder = "onnx"
         }
     };
