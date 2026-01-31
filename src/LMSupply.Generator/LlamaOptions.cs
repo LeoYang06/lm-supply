@@ -152,8 +152,8 @@ public sealed class LlamaOptions
             PerformanceTier.Ultra => new LlamaOptions
             {
                 GpuLayerCount = -1,          // All layers on GPU
-                BatchSize = 2048,            // Large batch for throughput
-                UBatchSize = 512,            // Physical batch size
+                BatchSize = 4096,            // Large batch for fast prompt processing (TTFT)
+                UBatchSize = 1024,           // Physical batch size
                 FlashAttention = flashAttention,
                 UseMemoryMap = true,
                 UseMemoryLock = false,       // Don't require elevated privileges
@@ -163,7 +163,7 @@ public sealed class LlamaOptions
             PerformanceTier.High => new LlamaOptions
             {
                 GpuLayerCount = -1,
-                BatchSize = 1024,
+                BatchSize = 2048,            // Larger batch for faster first token
                 UBatchSize = 512,
                 FlashAttention = flashAttention,
                 UseMemoryMap = true,
@@ -174,8 +174,8 @@ public sealed class LlamaOptions
             PerformanceTier.Medium => new LlamaOptions
             {
                 GpuLayerCount = -1,
-                BatchSize = 512,
-                UBatchSize = 256,
+                BatchSize = 1024,            // Increased for better TTFT
+                UBatchSize = 512,
                 FlashAttention = false,      // Conservative for mid-range
                 UseMemoryMap = true,
                 UseMemoryLock = false,
@@ -185,8 +185,8 @@ public sealed class LlamaOptions
             _ => new LlamaOptions              // Low tier
             {
                 GpuLayerCount = 0,            // CPU only for safety
-                BatchSize = 256,             // Smaller batch for memory
-                UBatchSize = 128,
+                BatchSize = 512,             // Reasonable batch for prompt processing
+                UBatchSize = 256,
                 FlashAttention = false,
                 UseMemoryMap = true,
                 UseMemoryLock = false

@@ -40,18 +40,28 @@ public static class QuickTest
         // Check for CPU-only mode via environment variable
         var forceCpu = Environment.GetEnvironmentVariable("LMSUPPLY_FORCE_CPU") == "1";
 
+        // Use hardware-optimized settings for best first token latency
+        var llamaOptions = LlamaOptions.GetOptimalForHardware();
+        if (forceCpu)
+        {
+            llamaOptions = new LlamaOptions
+            {
+                GpuLayerCount = 0,
+                BatchSize = 512,
+                UBatchSize = 256,
+                FlashAttention = false,
+                UseMemoryMap = true
+            };
+        }
+
         var options = new GeneratorOptions
         {
             MaxContextLength = 8192,
             Provider = forceCpu ? ExecutionProvider.Cpu : ExecutionProvider.Auto,
-            LlamaOptions = new LlamaOptions
-            {
-                GpuLayerCount = forceCpu ? 0 : -1,  // All layers on GPU unless CPU mode
-                BatchSize = 512,
-                FlashAttention = false, // Safety first
-                UseMemoryMap = true
-            }
+            LlamaOptions = llamaOptions
         };
+
+        Console.WriteLine($"Batch Size: {llamaOptions.BatchSize}, UBatch: {llamaOptions.UBatchSize}");
 
         if (forceCpu)
         {

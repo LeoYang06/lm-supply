@@ -2,6 +2,7 @@ using System.Diagnostics;
 using LMSupply;
 using LMSupply.Generator;
 using LMSupply.Generator.Models;
+using LMSupply.Hardware;
 
 // Quick test mode for comparison with LM Studio
 if (args.Contains("--quick"))
@@ -11,8 +12,8 @@ if (args.Contains("--quick"))
 }
 
 Console.WriteLine("=== LMSupply GGUF Performance Test (llama-server backend) ===\n");
-Console.WriteLine("이제 LLamaSharp 대신 llama-server (llama.cpp HTTP server)를 사용합니다.");
-Console.WriteLine("최신 llama.cpp 바이너리가 자동으로 다운로드됩니다.\n");
+Console.WriteLine("Using llama-server (llama.cpp HTTP server) instead of LLamaSharp.");
+Console.WriteLine("Latest llama.cpp binaries are auto-downloaded.\n");
 
 // Model path
 var modelPath = @"C:\Users\achunja\.lmstudio\models\lmstudio-community\gemma-3-4b-it-GGUF\gemma-3-4b-it-Q4_K_M.gguf";
@@ -30,17 +31,15 @@ Console.WriteLine($"Size: {new FileInfo(modelPath).Length / (1024.0 * 1024.0 * 1
 Console.WriteLine("Loading llama-server and model...");
 var loadSw = Stopwatch.StartNew();
 
+// Use hardware-optimized settings for best performance
+var llamaOptions = LlamaOptions.GetOptimalForHardware();
+Console.WriteLine($"Tier: {HardwareProfile.Current.Tier}, Batch: {llamaOptions.BatchSize}, UBatch: {llamaOptions.UBatchSize}");
+
 var options = new GeneratorOptions
 {
     MaxContextLength = 8192,
     Provider = ExecutionProvider.Auto,  // Auto-select best backend (Vulkan for broad compatibility)
-    LlamaOptions = new LlamaOptions
-    {
-        GpuLayerCount = -1,           // All layers on GPU if available
-        BatchSize = 512,
-        FlashAttention = false,       // Safety first
-        UseMemoryMap = true
-    }
+    LlamaOptions = llamaOptions
 };
 
 // Progress callback
@@ -60,6 +59,17 @@ Console.WriteLine($"\rModel loaded in {loadSw.Elapsed.TotalSeconds:F2}s         
 
 // Get model info
 var info = model.GetModelInfo();
+
+// Display server startup log for diagnostics
+if (!string.IsNullOrEmpty(info.BackendLog))
+{
+    Console.WriteLine("=== llama-server Startup Log (first 15 lines) ===");
+    var lines = info.BackendLog.Split('\n').Take(15);
+    foreach (var line in lines)
+        Console.WriteLine(line);
+    Console.WriteLine("...\n");
+}
+
 Console.WriteLine("=== Model Information ===");
 Console.WriteLine($"Model ID: {info.ModelId}");
 Console.WriteLine($"Context: {info.MaxContextLength}");

@@ -31,9 +31,16 @@ public sealed class LlamaServerConfig
     public int GpuLayers { get; init; } = -1;
 
     /// <summary>
-    /// Batch size for prompt processing.
+    /// Batch size for prompt processing (logical).
+    /// Higher values speed up prompt evaluation but use more memory.
     /// </summary>
     public int BatchSize { get; init; } = 512;
+
+    /// <summary>
+    /// Physical batch size (ubatch). Controls VRAM usage during processing.
+    /// Must be less than or equal to BatchSize. Default: 512.
+    /// </summary>
+    public int? UBatchSize { get; init; }
 
     /// <summary>
     /// Number of parallel sequences.
@@ -198,6 +205,12 @@ public sealed class LlamaServerProcess : IAsyncDisposable
             RedirectStandardError = true
         };
 
+        // Enable CUDA graph optimization for NVIDIA GPUs (reduces token generation latency)
+        if (_backend == LlamaServerBackend.Cuda12 || _backend == LlamaServerBackend.Cuda13)
+        {
+            startInfo.Environment["GGML_CUDA_GRAPH_OPT"] = "1";
+        }
+
         _process = _guardian.StartProcessWithStartInfo(startInfo);
 
         // Capture stderr output for diagnostics
@@ -254,6 +267,13 @@ public sealed class LlamaServerProcess : IAsyncDisposable
             "--host", "127.0.0.1", // Only listen on localhost for security
             "--cont-batching"      // Enable continuous batching for better throughput
         };
+
+        // Physical batch size for VRAM efficiency
+        if (_config.UBatchSize.HasValue)
+        {
+            args.Add("--ubatch-size");
+            args.Add(_config.UBatchSize.Value.ToString());
+        }
 
         if (_config.FlashAttention)
         {

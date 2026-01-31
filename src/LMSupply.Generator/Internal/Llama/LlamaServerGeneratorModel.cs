@@ -121,6 +121,7 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel
             ContextSize = contextLength,
             GpuLayers = llamaOpts.GpuLayerCount ?? (backend == LlamaServerBackend.Cpu ? 0 : -1),
             BatchSize = (int)(llamaOpts.BatchSize ?? 512),
+            UBatchSize = llamaOpts.UBatchSize.HasValue ? (int)llamaOpts.UBatchSize.Value : null,
             Parallel = Math.Max(1, options.MaxConcurrentRequests),
             FlashAttention = llamaOpts.FlashAttention ?? false,
             StartupTimeout = TimeSpan.FromSeconds(120),

@@ -272,6 +272,12 @@ internal sealed class ChatCompletionRequest
     public float? TopP { get; set; }
     public bool Stream { get; set; }
     public List<string>? Stop { get; set; }
+
+    /// <summary>
+    /// Re-use KV cache from previous request if possible.
+    /// Reduces first token latency for prompts with common prefixes.
+    /// </summary>
+    public bool CachePrompt { get; set; } = true;
 }
 
 internal sealed class CompletionRequest
@@ -282,6 +288,12 @@ internal sealed class CompletionRequest
     public float? TopP { get; set; }
     public bool Stream { get; set; }
     public List<string>? Stop { get; set; }
+
+    /// <summary>
+    /// Re-use KV cache from previous request if possible.
+    /// Reduces first token latency for prompts with common prefixes.
+    /// </summary>
+    public bool CachePrompt { get; set; } = true;
 }
 
 internal sealed class ChatCompletionChunk
