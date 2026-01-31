@@ -24,4 +24,65 @@ public record DownloadProgress
     /// Gets the download progress as a percentage (0-100).
     /// </summary>
     public double PercentComplete => TotalBytes > 0 ? (double)BytesDownloaded / TotalBytes * 100 : 0;
+
+    /// <summary>
+    /// Gets the current download speed in bytes per second.
+    /// </summary>
+    public double? BytesPerSecond { get; init; }
+
+    /// <summary>
+    /// Gets the estimated time remaining for the download.
+    /// </summary>
+    public TimeSpan? EstimatedRemaining { get; init; }
+
+    /// <summary>
+    /// Gets the current download phase.
+    /// </summary>
+    public DownloadPhase Phase { get; init; } = DownloadPhase.Downloading;
+
+    /// <summary>
+    /// Gets a human-readable speed string (e.g., "15.3 MB/s").
+    /// </summary>
+    public string SpeedDisplay => BytesPerSecond switch
+    {
+        null => "",
+        < 1024 => $"{BytesPerSecond:F0} B/s",
+        < 1024 * 1024 => $"{BytesPerSecond / 1024:F1} KB/s",
+        _ => $"{BytesPerSecond / (1024 * 1024):F1} MB/s"
+    };
+
+    /// <summary>
+    /// Gets a human-readable ETA string (e.g., "2m 30s").
+    /// </summary>
+    public string EtaDisplay => EstimatedRemaining switch
+    {
+        null => "",
+        { TotalSeconds: < 60 } eta => $"{eta.Seconds}s",
+        { TotalMinutes: < 60 } eta => $"{eta.Minutes}m {eta.Seconds}s",
+        _ => EstimatedRemaining.Value.ToString(@"h\h\ m\m")
+    };
+}
+
+/// <summary>
+/// Phases of the download process.
+/// </summary>
+public enum DownloadPhase
+{
+    /// <summary>Preparing to download (resolving URLs, checking cache).</summary>
+    Preparing,
+
+    /// <summary>Actively downloading file data.</summary>
+    Downloading,
+
+    /// <summary>Extracting downloaded archive.</summary>
+    Extracting,
+
+    /// <summary>Verifying downloaded content.</summary>
+    Verifying,
+
+    /// <summary>Finalizing download (moving to cache, cleanup).</summary>
+    Finalizing,
+
+    /// <summary>Download complete.</summary>
+    Complete
 }

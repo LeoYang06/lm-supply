@@ -45,13 +45,25 @@ public static class LocalGenerator
             modelId = autoModel.ModelId;
         }
 
+        // Check if it's a local file path (e.g., C:\models\model.gguf or /path/to/model.gguf)
+        if (File.Exists(modelId))
+        {
+            return Internal.GeneratorModelLoader.LoadFromPathAsync(modelId, options, modelId);
+        }
+
+        // Check if it's a local directory path
+        if (Directory.Exists(modelId))
+        {
+            return Internal.GeneratorModelLoader.LoadFromPathAsync(modelId, options, modelId);
+        }
+
         return Internal.GeneratorModelLoader.LoadAsync(modelId, options, progress, cancellationToken);
     }
 
     /// <summary>
-    /// Loads a text generator from a local model directory.
+    /// Loads a text generator from a local model path.
     /// </summary>
-    /// <param name="modelPath">The path to the local model directory.</param>
+    /// <param name="modelPath">The path to the local model directory or GGUF file.</param>
     /// <param name="options">Model loading options.</param>
     /// <returns>A text generator instance.</returns>
     public static Task<IGeneratorModel> LoadFromPathAsync(
@@ -60,9 +72,10 @@ public static class LocalGenerator
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(modelPath);
 
-        if (!Directory.Exists(modelPath))
+        // Support both directory (ONNX) and file (GGUF) paths
+        if (!Directory.Exists(modelPath) && !File.Exists(modelPath))
         {
-            throw new DirectoryNotFoundException($"Model directory not found: {modelPath}");
+            throw new FileNotFoundException($"Model path not found: {modelPath}");
         }
 
         options ??= new GeneratorOptions();

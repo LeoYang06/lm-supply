@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using LLama.Native;
+using LMSupply.Download;
 using LMSupply.Runtime;
 
 namespace LMSupply.Llama;
@@ -8,9 +9,12 @@ namespace LMSupply.Llama;
 /// <summary>
 /// Manages llama.cpp native binary download and configuration.
 /// Follows LMSupply's on-demand philosophy: binaries are downloaded only when first needed.
+/// Supports automatic runtime updates with background downloading.
 /// </summary>
 public sealed class LlamaRuntimeManager : IAsyncDisposable
 {
+    private const string PackageType = "llamasharp";
+
     private static readonly Lazy<LlamaRuntimeManager> _instance = new(() => new());
 
     /// <summary>
@@ -19,10 +23,28 @@ public sealed class LlamaRuntimeManager : IAsyncDisposable
     public static LlamaRuntimeManager Instance => _instance.Value;
 
     private readonly SemaphoreSlim _initLock = new(1, 1);
+    private readonly RuntimeUpdateOptions _updateOptions;
     private bool _initialized;
     private bool _disposed;
     private LlamaBackend _activeBackend;
     private string? _binaryPath;
+    private string? _currentVersion;
+    private PlatformInfo? _platform;
+
+    /// <summary>
+    /// Creates a new instance with default options.
+    /// </summary>
+    public LlamaRuntimeManager() : this(RuntimeUpdateOptions.Default)
+    {
+    }
+
+    /// <summary>
+    /// Creates a new instance with custom update options.
+    /// </summary>
+    public LlamaRuntimeManager(RuntimeUpdateOptions options)
+    {
+        _updateOptions = options;
+    }
 
     /// <summary>
     /// Gets whether the runtime has been initialized.
@@ -38,6 +60,11 @@ public sealed class LlamaRuntimeManager : IAsyncDisposable
     /// Gets the path to the loaded native binaries.
     /// </summary>
     public string? BinaryPath => _binaryPath;
+
+    /// <summary>
+    /// Gets the current runtime version.
+    /// </summary>
+    public string? CurrentVersion => _currentVersion;
 
     /// <summary>
     /// Ensures the llama.cpp runtime is initialized with the specified backend.
@@ -63,13 +90,13 @@ public sealed class LlamaRuntimeManager : IAsyncDisposable
                 return;
 
             // 1. Detect platform and GPU
-            var platform = EnvironmentDetector.DetectPlatform();
+            _platform = EnvironmentDetector.DetectPlatform();
             var gpu = EnvironmentDetector.DetectGpu();
 
             // 2. Get backend fallback chain
             var chain = provider == ExecutionProvider.Auto
-                ? GetBackendFallbackChain(platform, gpu)
-                : [DetermineBackend(provider, platform, gpu)];
+                ? GetBackendFallbackChain(_platform, gpu)
+                : [DetermineBackend(provider, _platform, gpu)];
 
             Exception? lastException = null;
 
@@ -80,15 +107,29 @@ public sealed class LlamaRuntimeManager : IAsyncDisposable
                 {
                     Debug.WriteLine($"[LlamaRuntimeManager] Trying backend: {backend}");
 
-                    // Download native binaries from NuGet (if not cached)
-                    var binaryPath = await DownloadNativeBinaryFromNuGetAsync(
-                        backend, platform, progress, cancellationToken);
+                    // Get current version from assembly
+                    var currentVersion = GetLLamaSharpVersion();
+
+                    // Get update service
+                    var updateService = RuntimeUpdateService.GetInstance(PackageType, _updateOptions);
+                    var packageId = GetBackendPackageId(backend);
+
+                    // Download native binaries with update service
+                    var binaryPath = await updateService.GetRuntimePathAsync(
+                        packageId,
+                        backend.ToString().ToLowerInvariant(),
+                        _platform,
+                        currentVersion,
+                        (version, prog, ct) => DownloadNativeBinaryFromNuGetAsync(backend, _platform, version, prog, ct),
+                        progress,
+                        cancellationToken);
 
                     // Configure LLamaSharp to use downloaded binaries
                     ConfigureNativeLibrary(binaryPath, backend);
 
                     _activeBackend = backend;
                     _binaryPath = binaryPath;
+                    _currentVersion = currentVersion;
                     _initialized = true;
 
                     Debug.WriteLine($"[LlamaRuntimeManager] Successfully initialized with backend: {backend}");
@@ -140,9 +181,13 @@ public sealed class LlamaRuntimeManager : IAsyncDisposable
         }
 
         // AMD/Intel discrete GPU on Windows/Linux: Vulkan
-        if ((gpu.Vendor == GpuVendor.Amd || gpu.Vendor == GpuVendor.Intel) && !platform.IsMacOS)
+        // Also try Vulkan for Unknown vendor with DirectML support (likely AMD/Intel)
+        if (!platform.IsMacOS &&
+            (gpu.Vendor == GpuVendor.Amd ||
+             gpu.Vendor == GpuVendor.Intel ||
+             (gpu.Vendor == GpuVendor.Unknown && gpu.DirectMLSupported)))
         {
-            // Vulkan can be unstable, but include it in fallback chain
+            // Vulkan provides GPU acceleration for non-NVIDIA GPUs
             chain.Add(LlamaBackend.Vulkan);
         }
 
@@ -211,6 +256,7 @@ public sealed class LlamaRuntimeManager : IAsyncDisposable
     private async Task<string> DownloadNativeBinaryFromNuGetAsync(
         LlamaBackend backend,
         PlatformInfo platform,
+        string? version,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -218,8 +264,122 @@ public sealed class LlamaRuntimeManager : IAsyncDisposable
         return await downloader.DownloadAsync(
             backend,
             platform,
+            version: version,
             progress: progress,
             cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets the NuGet package ID for a backend.
+    /// </summary>
+    private static string GetBackendPackageId(LlamaBackend backend) => backend switch
+    {
+        LlamaBackend.Cpu => "llamasharp.backend.cpu",
+        LlamaBackend.Cuda12 => "llamasharp.backend.cuda12",
+        LlamaBackend.Cuda13 => "llamasharp.backend.cuda12", // Use CUDA 12 for now
+        LlamaBackend.Vulkan => "llamasharp.backend.vulkan",
+        LlamaBackend.Metal => "llamasharp.backend.cpu", // Metal included in CPU package for macOS
+        _ => "llamasharp.backend.cpu"
+    };
+
+    /// <summary>
+    /// Gets the LLamaSharp version from the loaded assembly.
+    /// </summary>
+    private static string GetLLamaSharpVersion()
+    {
+        try
+        {
+            var assembly = typeof(LLama.LLamaWeights).Assembly;
+
+            var infoVersionAttr = assembly.GetCustomAttributes(
+                typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                .FirstOrDefault();
+
+            if (infoVersionAttr != null)
+            {
+                var ver = infoVersionAttr.InformationalVersion;
+                var plusIdx = ver.IndexOf('+');
+                if (plusIdx > 0)
+                    ver = ver[..plusIdx];
+                if (!string.IsNullOrEmpty(ver) && ver != "0.0.0")
+                    return ver;
+            }
+
+            var version = assembly.GetName().Version;
+            if (version != null && version.Major > 0)
+            {
+                return $"{version.Major}.{version.Minor}.{version.Build}";
+            }
+        }
+        catch
+        {
+            // Ignore
+        }
+
+        return "0.25.0"; // Fallback version
+    }
+
+    /// <summary>
+    /// Checks for runtime updates and applies them synchronously.
+    /// Called during WarmupAsync to ensure latest runtime before inference.
+    /// </summary>
+    public async Task<RuntimeUpdateResult> CheckAndApplyUpdateAsync(
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+
+        if (!_initialized || _platform is null)
+        {
+            return RuntimeUpdateResult.Failed("Runtime not initialized. Call EnsureInitializedAsync first.");
+        }
+
+        var updateService = RuntimeUpdateService.GetInstance(PackageType, _updateOptions);
+        var packageId = GetBackendPackageId(_activeBackend);
+        var currentVersion = _currentVersion ?? GetLLamaSharpVersion();
+
+        var result = await updateService.CheckAndApplyUpdateAsync(
+            packageId,
+            _activeBackend.ToString().ToLowerInvariant(),
+            _platform,
+            currentVersion,
+            (version, prog, ct) => DownloadNativeBinaryFromNuGetAsync(_activeBackend, _platform, version, prog, ct),
+            progress,
+            cancellationToken);
+
+        if (result.Updated && !string.IsNullOrEmpty(result.RuntimePath))
+        {
+            // Re-configure with new runtime
+            ConfigureNativeLibrary(result.RuntimePath, _activeBackend);
+            _binaryPath = result.RuntimePath;
+            _currentVersion = result.NewVersion;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Gets runtime update information for diagnostics.
+    /// </summary>
+    public async Task<RuntimeUpdateInfo> GetRuntimeUpdateInfoAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+
+        if (!_initialized || _platform is null)
+        {
+            return new RuntimeUpdateInfo
+            {
+                InstalledVersion = "unknown",
+                Provider = "not initialized"
+            };
+        }
+
+        var updateService = RuntimeUpdateService.GetInstance(PackageType, _updateOptions);
+        return await updateService.GetUpdateInfoAsync(
+            _activeBackend.ToString().ToLowerInvariant(),
+            _platform,
+            cancellationToken);
     }
 
     /// <summary>

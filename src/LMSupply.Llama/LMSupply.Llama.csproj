@@ -21,6 +21,9 @@
     <!-- LLamaSharp for GGUF model inference (llama.cpp .NET binding) -->
     <!-- ExcludeAssets="native" - native binaries downloaded on-demand via LlamaRuntimeManager -->
     <PackageReference Include="LLamaSharp" ExcludeAssets="native" />
+
+    <!-- Process management for llama-server -->
+    <PackageReference Include="ChildProcessGuard" />
   </ItemGroup>
 
   <ItemGroup>

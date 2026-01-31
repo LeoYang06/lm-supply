@@ -22,6 +22,7 @@ internal sealed class GgufGeneratorModel : IGeneratorModel
     private readonly GeneratorOptions _options;
     private readonly string _modelPath;
     private readonly SemaphoreSlim _concurrencyLimiter;
+    private readonly GgufMetadata? _ggufMetadata;
     private bool _disposed;
 
     private GgufGeneratorModel(
@@ -31,7 +32,8 @@ internal sealed class GgufGeneratorModel : IGeneratorModel
         LLamaContext context,
         IChatFormatter chatFormatter,
         GeneratorOptions options,
-        int maxContextLength)
+        int maxContextLength,
+        GgufMetadata? ggufMetadata)
     {
         ModelId = modelId;
         _modelPath = modelPath;
@@ -40,6 +42,7 @@ internal sealed class GgufGeneratorModel : IGeneratorModel
         _chatFormatter = chatFormatter;
         _options = options;
         MaxContextLength = maxContextLength;
+        _ggufMetadata = ggufMetadata;
 
         // Initialize concurrency limiter
         _concurrencyLimiter = new SemaphoreSlim(
@@ -84,6 +87,17 @@ internal sealed class GgufGeneratorModel : IGeneratorModel
             BytesDownloaded = 0,
             TotalBytes = 100
         });
+
+        // 1.5. Read GGUF metadata (non-blocking, best effort)
+        GgufMetadata? ggufMetadata = null;
+        try
+        {
+            ggufMetadata = await GgufMetadataReader.ReadAsync(modelPath, false, cancellationToken);
+        }
+        catch
+        {
+            // Ignore metadata reading errors - not critical
+        }
 
         // 2. Configure model parameters with LlamaOptions
         var contextLength = (uint)(options.MaxContextLength ?? 4096);
@@ -153,7 +167,8 @@ internal sealed class GgufGeneratorModel : IGeneratorModel
             context,
             chatFormatter,
             options,
-            (int)contextLength);
+            (int)contextLength,
+            ggufMetadata);
     }
 
     /// <inheritdoc />
@@ -334,7 +349,10 @@ internal sealed class GgufGeneratorModel : IGeneratorModel
         _modelPath,
         MaxContextLength,
         _chatFormatter.FormatName,
-        "LLamaSharp");
+        "LLamaSharp")
+    {
+        GgufMetadata = _ggufMetadata
+    };
 
     private GenerationOptions MergeStopSequences(GenerationOptions options)
     {

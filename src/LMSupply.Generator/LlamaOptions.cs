@@ -1,4 +1,5 @@
 using LMSupply.Hardware;
+using LMSupply.Runtime;
 
 namespace LMSupply.Generator;
 
@@ -42,7 +43,22 @@ public sealed class LlamaOptions
     /// 0 = CPU only
     /// N = Offload N layers to GPU
     /// </summary>
+    /// <remarks>
+    /// If <see cref="GpuOffloadRatio"/> is set, it takes precedence over this value.
+    /// </remarks>
     public int? GpuLayerCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the GPU offload ratio (0.0 to 1.0).
+    /// 0.0 = CPU only (equivalent to GpuLayerCount = 0)
+    /// 1.0 = All layers on GPU (equivalent to GpuLayerCount = -1)
+    /// 0.5 = 50% of layers on GPU
+    /// </summary>
+    /// <remarks>
+    /// This provides a more intuitive way to control GPU usage.
+    /// When set, this value takes precedence over <see cref="GpuLayerCount"/>.
+    /// </remarks>
+    public float? GpuOffloadRatio { get; set; }
 
     /// <summary>
     /// Gets or sets the batch size for prompt processing.
@@ -125,6 +141,12 @@ public sealed class LlamaOptions
     {
         var profile = HardwareProfile.Current;
 
+        // FlashAttention support depends on GPU vendor and tier
+        // - NVIDIA CUDA: Compute capability 7.0+ (Volta and newer)
+        // - Apple Metal: Supported on Apple Silicon
+        // - Vulkan/Hip: Not reliably supported, disable by default
+        var flashAttention = ShouldEnableFlashAttention(profile);
+
         return profile.Tier switch
         {
             PerformanceTier.Ultra => new LlamaOptions
@@ -132,7 +154,7 @@ public sealed class LlamaOptions
                 GpuLayerCount = -1,          // All layers on GPU
                 BatchSize = 2048,            // Large batch for throughput
                 UBatchSize = 512,            // Physical batch size
-                FlashAttention = true,       // Enable if supported
+                FlashAttention = flashAttention,
                 UseMemoryMap = true,
                 UseMemoryLock = false,       // Don't require elevated privileges
                 TypeK = KvCacheQuantizationType.Q8_0,  // Quantized KV cache for memory savings
@@ -143,7 +165,7 @@ public sealed class LlamaOptions
                 GpuLayerCount = -1,
                 BatchSize = 1024,
                 UBatchSize = 512,
-                FlashAttention = true,
+                FlashAttention = flashAttention,
                 UseMemoryMap = true,
                 UseMemoryLock = false,
                 TypeK = KvCacheQuantizationType.Q8_0,
@@ -172,4 +194,76 @@ public sealed class LlamaOptions
             }
         };
     }
+
+    /// <summary>
+    /// Determines if FlashAttention should be enabled based on hardware.
+    /// </summary>
+    private static bool ShouldEnableFlashAttention(HardwareProfile profile)
+    {
+        // Only enable for high-performance tiers
+        if (profile.Tier < PerformanceTier.High)
+            return false;
+
+        var gpuInfo = profile.GpuInfo;
+
+        return gpuInfo.Vendor switch
+        {
+            // NVIDIA: Enable for compute capability 7.0+ (Volta, Turing, Ampere, Ada, Hopper)
+            GpuVendor.Nvidia when gpuInfo.CudaComputeCapabilityMajor >= 7 => true,
+
+            // Apple Silicon: Metal supports FlashAttention
+            GpuVendor.Apple => true,
+
+            // AMD/Intel/Others: Vulkan and Hip backends don't reliably support FlashAttention
+            // Wait for llama.cpp to improve Vulkan FlashAttention support
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Calculates the effective GPU layer count, considering both GpuLayerCount and GpuOffloadRatio.
+    /// </summary>
+    /// <param name="totalLayers">Total number of layers in the model.</param>
+    /// <returns>The number of layers to offload to GPU.</returns>
+    public int GetEffectiveGpuLayerCount(int totalLayers)
+    {
+        // GpuOffloadRatio takes precedence if set
+        if (GpuOffloadRatio.HasValue)
+        {
+            var ratio = Math.Clamp(GpuOffloadRatio.Value, 0f, 1f);
+
+            return ratio switch
+            {
+                0f => 0,                           // CPU only
+                >= 1f => -1,                       // All layers on GPU
+                _ => (int)(totalLayers * ratio)   // Partial offload
+            };
+        }
+
+        // Fall back to GpuLayerCount
+        return GpuLayerCount ?? -1; // Default to all layers on GPU
+    }
+
+    /// <summary>
+    /// Creates options with the specified GPU offload ratio.
+    /// </summary>
+    /// <param name="ratio">Offload ratio: 0.0 (CPU) to 1.0 (full GPU).</param>
+    /// <returns>A new LlamaOptions instance.</returns>
+    public static LlamaOptions WithGpuRatio(float ratio)
+    {
+        return new LlamaOptions
+        {
+            GpuOffloadRatio = Math.Clamp(ratio, 0f, 1f)
+        };
+    }
+
+    /// <summary>
+    /// Creates CPU-only options.
+    /// </summary>
+    public static LlamaOptions CpuOnly => new() { GpuOffloadRatio = 0f };
+
+    /// <summary>
+    /// Creates full GPU offload options.
+    /// </summary>
+    public static LlamaOptions FullGpu => new() { GpuOffloadRatio = 1f };
 }

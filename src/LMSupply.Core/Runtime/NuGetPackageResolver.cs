@@ -12,7 +12,7 @@ public sealed class NuGetPackageResolver : IDisposable
     private const string NuGetFlatContainerBase = "https://api.nuget.org/v3-flatcontainer";
 
     private readonly HttpClient _httpClient;
-    private readonly Dictionary<string, string[]> _versionCache = new();
+    private readonly Dictionary<string, (string[] Versions, DateTimeOffset CachedAt)> _versionCache = new();
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
 
     public NuGetPackageResolver(HttpClient? httpClient = null)
@@ -23,9 +23,25 @@ public sealed class NuGetPackageResolver : IDisposable
 
     /// <summary>
     /// Gets all available versions for a package, sorted descending (latest first).
+    /// Uses in-memory cache without TTL (session-level caching).
     /// </summary>
     public async Task<IReadOnlyList<string>> GetVersionsAsync(
         string packageId,
+        CancellationToken cancellationToken = default)
+    {
+        return await GetVersionsWithCacheAsync(packageId, TimeSpan.Zero, cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets all available versions for a package with TTL-based caching.
+    /// If TTL is zero, uses session-level caching (no expiry).
+    /// </summary>
+    /// <param name="packageId">The NuGet package ID.</param>
+    /// <param name="ttl">Cache time-to-live. Zero means no expiry (session cache).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<IReadOnlyList<string>> GetVersionsWithCacheAsync(
+        string packageId,
+        TimeSpan ttl,
         CancellationToken cancellationToken = default)
     {
         var normalizedId = packageId.ToLowerInvariant();
@@ -35,7 +51,14 @@ public sealed class NuGetPackageResolver : IDisposable
         {
             if (_versionCache.TryGetValue(normalizedId, out var cached))
             {
-                return cached;
+                // Check if cache is still valid
+                var cacheValid = ttl == TimeSpan.Zero ||
+                    DateTimeOffset.UtcNow - cached.CachedAt < ttl;
+
+                if (cacheValid)
+                {
+                    return cached.Versions;
+                }
             }
 
             var url = $"{NuGetFlatContainerBase}/{normalizedId}/index.json";
@@ -50,7 +73,7 @@ public sealed class NuGetPackageResolver : IDisposable
                 .Select(x => x.Original)
                 .ToArray();
 
-            _versionCache[normalizedId] = sorted;
+            _versionCache[normalizedId] = (sorted, DateTimeOffset.UtcNow);
             return sorted;
         }
         finally

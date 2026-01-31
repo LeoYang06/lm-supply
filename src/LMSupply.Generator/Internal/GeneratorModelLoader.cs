@@ -72,7 +72,7 @@ internal static class GeneratorModelLoader
     }
 
     /// <summary>
-    /// Loads a GGUF model from HuggingFace.
+    /// Loads a GGUF model from HuggingFace using llama-server backend.
     /// </summary>
     private static async Task<IGeneratorModel> LoadGgufAsync(
         string modelId,
@@ -114,11 +114,11 @@ internal static class GeneratorModelLoader
             chatFormat = options.ChatFormat ?? GgufChatFormatDetector.DetectFromFilename(modelPath);
         }
 
-        // Load the model from downloaded path
+        // Load the model from downloaded path using llama-server
         var resolvedModelId = registryInfo?.DisplayName ?? modelId;
         var chatFormatter = ChatFormatterFactory.CreateByFormat(chatFormat);
 
-        return await GgufGeneratorModel.LoadAsync(
+        return await LlamaServerGeneratorModel.LoadAsync(
             resolvedModelId,
             modelPath,
             chatFormatter,
@@ -174,7 +174,7 @@ internal static class GeneratorModelLoader
     }
 
     /// <summary>
-    /// Loads a GGUF model from a local path.
+    /// Loads a GGUF model from a local path using llama-server backend.
     /// </summary>
     private static async Task<IGeneratorModel> LoadGgufFromPathAsync(
         string modelPath,
@@ -187,7 +187,7 @@ internal static class GeneratorModelLoader
         var chatFormat = options.ChatFormat ?? GgufChatFormatDetector.DetectFromFilename(modelPath);
         var chatFormatter = ChatFormatterFactory.CreateByFormat(chatFormat);
 
-        return await GgufGeneratorModel.LoadAsync(
+        return await LlamaServerGeneratorModel.LoadAsync(
             modelId,
             modelPath,
             chatFormatter,

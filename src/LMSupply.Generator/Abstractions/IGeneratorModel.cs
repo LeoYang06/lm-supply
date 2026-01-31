@@ -1,3 +1,5 @@
+using LMSupply.Generator.Internal.Llama;
+
 namespace LMSupply.Generator.Abstractions;
 
 /// <summary>
@@ -58,6 +60,21 @@ public readonly record struct GeneratorModelInfo(
     string ExecutionProvider) : IModelInfoBase
 {
     /// <summary>
+    /// Gets GGUF-specific metadata (only available for GGUF models).
+    /// </summary>
+    public GgufMetadata? GgufMetadata { get; init; }
+
+    /// <summary>
+    /// Gets the backend startup log for diagnostics (llama-server only).
+    /// </summary>
+    public string? BackendLog { get; init; }
+
+    /// <summary>
+    /// Gets the runtime version (e.g., llama-server "b7898").
+    /// </summary>
+    public string? RuntimeVersion { get; init; }
+
+    /// <summary>
     /// Gets the model identifier (IModelInfoBase.Id).
     /// </summary>
     string IModelInfoBase.Id => ModelId;
@@ -71,4 +88,30 @@ public readonly record struct GeneratorModelInfo(
     /// Gets the model description.
     /// </summary>
     string? IModelInfoBase.Description => $"{ChatFormat} model at {ModelPath}";
+
+    /// <summary>
+    /// Gets a summary of the model's architecture from GGUF metadata.
+    /// </summary>
+    public string? GetArchitectureSummary()
+    {
+        if (GgufMetadata == null)
+            return null;
+
+        return GgufMetadata.GetSummary();
+    }
+
+    /// <summary>
+    /// Gets the estimated parameter count from GGUF metadata.
+    /// </summary>
+    public long? ParameterCount => GgufMetadata?.EstimatedParameterCount;
+
+    /// <summary>
+    /// Gets the quantization type from GGUF metadata.
+    /// </summary>
+    public string? QuantizationType => GgufMetadata?.QuantizationType;
+
+    /// <summary>
+    /// Gets the model architecture from GGUF metadata (e.g., "llama", "gemma").
+    /// </summary>
+    public string? Architecture => GgufMetadata?.Architecture;
 }

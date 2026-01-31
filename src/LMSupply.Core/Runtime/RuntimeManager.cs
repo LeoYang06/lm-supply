@@ -9,14 +9,19 @@ namespace LMSupply.Runtime;
 /// </summary>
 public sealed class RuntimeManager : IAsyncDisposable
 {
+    private const string PackageType = "onnxruntime";
+
     private readonly OnnxNuGetDownloader _nugetDownloader;
     private readonly RuntimeManagerOptions _options;
+    private readonly RuntimeUpdateOptions _updateOptions;
     private readonly SemaphoreSlim _initLock = new(1, 1);
 
     private bool _initialized;
     private bool _disposed;
     private PlatformInfo? _platform;
     private GpuInfo? _gpu;
+    private string? _currentVersion;
+    private string? _activeProvider;
 
     /// <summary>
     /// Gets the singleton instance of the runtime manager.
@@ -26,16 +31,17 @@ public sealed class RuntimeManager : IAsyncDisposable
     /// <summary>
     /// Creates a new runtime manager with default options.
     /// </summary>
-    public RuntimeManager() : this(new RuntimeManagerOptions())
+    public RuntimeManager() : this(new RuntimeManagerOptions(), RuntimeUpdateOptions.Default)
     {
     }
 
     /// <summary>
     /// Creates a new runtime manager with custom options.
     /// </summary>
-    public RuntimeManager(RuntimeManagerOptions options)
+    public RuntimeManager(RuntimeManagerOptions options, RuntimeUpdateOptions? updateOptions = null)
     {
         _options = options;
+        _updateOptions = updateOptions ?? RuntimeUpdateOptions.Default;
         _nugetDownloader = new OnnxNuGetDownloader(options.CacheDirectory);
     }
 
@@ -53,6 +59,16 @@ public sealed class RuntimeManager : IAsyncDisposable
     /// Gets the recommended execution provider based on detected hardware.
     /// </summary>
     public ExecutionProvider RecommendedProvider => _gpu?.RecommendedProvider ?? ExecutionProvider.Cpu;
+
+    /// <summary>
+    /// Gets the current runtime version.
+    /// </summary>
+    public string? CurrentVersion => _currentVersion;
+
+    /// <summary>
+    /// Gets the active provider string.
+    /// </summary>
+    public string? ActiveProvider => _activeProvider;
 
     /// <summary>
     /// Initializes the runtime manager by detecting hardware.
@@ -188,7 +204,7 @@ public sealed class RuntimeManager : IAsyncDisposable
     }
 
     /// <summary>
-    /// Downloads runtime for a specific provider from NuGet.
+    /// Downloads runtime for a specific provider from NuGet with auto-update support.
     /// </summary>
     private async Task<string> DownloadRuntimeForProviderAsync(
         string provider,
@@ -197,22 +213,94 @@ public sealed class RuntimeManager : IAsyncDisposable
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
-        var binaryPath = await _nugetDownloader.DownloadAsync(
+        // Get package configuration
+        var config = RuntimePackageRegistry.GetPackageConfig(packageType, provider, _platform!.RuntimeIdentifier);
+        if (config is null)
+        {
+            throw new InvalidOperationException($"No package configuration found for {packageType}/{provider}");
+        }
+
+        // Resolve initial version if not specified
+        var currentVersion = version ?? await ResolveVersionAsync(config.PackageId, cancellationToken);
+
+        // Get update service
+        var updateService = RuntimeUpdateService.GetInstance(packageType, _updateOptions);
+
+        // Download with update service
+        var binaryPath = await updateService.GetRuntimePathAsync(
+            config.PackageId,
             provider,
             _platform!,
-            version,
+            currentVersion,
+            (ver, prog, ct) => _nugetDownloader.DownloadAsync(provider, _platform!, ver, prog, ct, packageType),
             progress,
-            cancellationToken,
-            packageType);
+            cancellationToken);
 
-        // Get the primary library name from registry
-        var config = RuntimePackageRegistry.GetPackageConfig(packageType, provider, _platform!.RuntimeIdentifier);
-        var primaryLibrary = config?.NativeLibraryName ?? "onnxruntime";
+        // Track current state
+        _currentVersion = currentVersion;
+        _activeProvider = provider;
 
         // Register with NativeLoader for DLL resolution
+        var primaryLibrary = config.NativeLibraryName ?? "onnxruntime";
         NativeLoader.Instance.RegisterDirectory(binaryPath, preload: true, primaryLibrary: primaryLibrary);
 
         return binaryPath;
+    }
+
+    /// <summary>
+    /// Resolves the version to use from loaded assembly.
+    /// </summary>
+    private async Task<string> ResolveVersionAsync(string packageId, CancellationToken ct)
+    {
+        // Try to get from loaded assembly
+        var assemblyVersion = TryGetOnnxRuntimeVersion();
+        if (!string.IsNullOrEmpty(assemblyVersion))
+        {
+            return assemblyVersion;
+        }
+
+        // Get latest from NuGet
+        using var resolver = new NuGetPackageResolver();
+        var latest = await resolver.GetLatestVersionAsync(packageId, includePrerelease: false, ct);
+        return latest ?? throw new InvalidOperationException($"Could not determine version for {packageId}");
+    }
+
+    private static string? TryGetOnnxRuntimeVersion()
+    {
+        try
+        {
+            var assembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name?.Equals("Microsoft.ML.OnnxRuntime", StringComparison.OrdinalIgnoreCase) == true);
+
+            if (assembly is null)
+                return null;
+
+            var infoAttr = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                .FirstOrDefault();
+
+            if (infoAttr != null)
+            {
+                var ver = infoAttr.InformationalVersion;
+                var plusIdx = ver.IndexOf('+');
+                if (plusIdx > 0)
+                    ver = ver[..plusIdx];
+                if (!string.IsNullOrEmpty(ver) && ver != "0.0.0")
+                    return ver;
+            }
+
+            var version = assembly.GetName().Version;
+            if (version != null && version.Major > 0)
+            {
+                return $"{version.Major}.{version.Minor}.{version.Build}";
+            }
+        }
+        catch
+        {
+            // Ignore
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -314,8 +402,83 @@ public sealed class RuntimeManager : IAsyncDisposable
             GPU: {_gpu}
             Recommended Provider: {RecommendedProvider}
             Default Provider String: {GetDefaultProvider()}
+            Active Provider: {_activeProvider ?? "none"}
+            Current Version: {_currentVersion ?? "unknown"}
             Cache Directory: {CacheDirectory}
             """;
+    }
+
+    /// <summary>
+    /// Checks for runtime updates and applies them synchronously.
+    /// Called during WarmupAsync to ensure latest runtime before inference.
+    /// </summary>
+    public async Task<RuntimeUpdateResult> CheckAndApplyUpdateAsync(
+        string packageType,
+        IProgress<DownloadProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+
+        if (!_initialized || _platform is null || _activeProvider is null)
+        {
+            return RuntimeUpdateResult.Failed("Runtime not initialized. Call EnsureRuntimeAsync first.");
+        }
+
+        var normalizedPackageType = NormalizePackageType(packageType);
+        var config = RuntimePackageRegistry.GetPackageConfig(normalizedPackageType, _activeProvider, _platform.RuntimeIdentifier);
+        if (config is null)
+        {
+            return RuntimeUpdateResult.Failed($"No package configuration found for {normalizedPackageType}/{_activeProvider}");
+        }
+
+        var updateService = RuntimeUpdateService.GetInstance(normalizedPackageType, _updateOptions);
+        var currentVersion = _currentVersion ?? await ResolveVersionAsync(config.PackageId, cancellationToken);
+
+        var result = await updateService.CheckAndApplyUpdateAsync(
+            config.PackageId,
+            _activeProvider,
+            _platform,
+            currentVersion,
+            (ver, prog, ct) => _nugetDownloader.DownloadAsync(_activeProvider, _platform, ver, prog, ct, normalizedPackageType),
+            progress,
+            cancellationToken);
+
+        if (result.Updated && !string.IsNullOrEmpty(result.RuntimePath))
+        {
+            // Re-register with NativeLoader
+            var primaryLibrary = config.NativeLibraryName ?? "onnxruntime";
+            NativeLoader.Instance.RegisterDirectory(result.RuntimePath, preload: true, primaryLibrary: primaryLibrary);
+            _currentVersion = result.NewVersion;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Gets runtime update information for diagnostics.
+    /// </summary>
+    public async Task<RuntimeUpdateInfo> GetRuntimeUpdateInfoAsync(
+        string packageType,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+
+        if (!_initialized || _platform is null || _activeProvider is null)
+        {
+            return new RuntimeUpdateInfo
+            {
+                InstalledVersion = "unknown",
+                Provider = "not initialized"
+            };
+        }
+
+        var normalizedPackageType = NormalizePackageType(packageType);
+        var updateService = RuntimeUpdateService.GetInstance(normalizedPackageType, _updateOptions);
+
+        return await updateService.GetUpdateInfoAsync(
+            _activeProvider,
+            _platform,
+            cancellationToken);
     }
 
     private static string GetDefaultCacheDirectory()

@@ -34,30 +34,27 @@ public static class GpuDetector
         // Check CoreML support on macOS
         var coreMLSupported = CoreMLDetector.IsSupported();
 
-        // If no discrete GPUs found, check for integrated/Apple Silicon
-        if (gpus.Count == 0)
+        // If no discrete GPUs found via NVML, try DXGI on Windows
+        if (gpus.Count == 0 && directMLSupported)
         {
-            if (coreMLSupported)
+            var dxgiGpus = DxgiDetector.DetectGpus();
+            gpus.AddRange(dxgiGpus.Select(g => g with
             {
-                gpus.Add(new GpuInfo
-                {
-                    Vendor = GpuVendor.Apple,
-                    DeviceName = GetAppleSiliconName(),
-                    CoreMLSupported = true,
-                    DirectMLSupported = false
-                });
-            }
-            else if (directMLSupported)
+                DirectMLSupported = true,
+                CoreMLSupported = false
+            }));
+        }
+
+        // If still no GPUs, check for Apple Silicon
+        if (gpus.Count == 0 && coreMLSupported)
+        {
+            gpus.Add(new GpuInfo
             {
-                // Windows with DirectML but no NVIDIA - likely AMD or Intel integrated
-                gpus.Add(new GpuInfo
-                {
-                    Vendor = GpuVendor.Unknown,
-                    DeviceName = "DirectML Compatible GPU",
-                    DirectMLSupported = true,
-                    CoreMLSupported = false
-                });
-            }
+                Vendor = GpuVendor.Apple,
+                DeviceName = GetAppleSiliconName(),
+                CoreMLSupported = true,
+                DirectMLSupported = false
+            });
         }
         else
         {
@@ -491,5 +488,197 @@ internal static class CoreMLDetector
         {
             return false;
         }
+    }
+}
+
+/// <summary>
+/// DXGI-based GPU detection for Windows.
+/// Uses DirectX Graphics Infrastructure to enumerate adapters and identify vendors.
+/// </summary>
+internal static class DxgiDetector
+{
+    // Vendor IDs
+    private const uint VENDOR_NVIDIA = 0x10DE;
+    private const uint VENDOR_AMD = 0x1002;
+    private const uint VENDOR_INTEL = 0x8086;
+    private const uint VENDOR_QUALCOMM = 0x17CB;
+    private const uint VENDOR_MICROSOFT = 0x1414; // Microsoft Basic Render Driver
+
+    // DXGI interfaces and methods
+    private static readonly Guid IID_IDXGIFactory1 = new("770aae78-f26f-4dba-a829-253c83d1b387");
+
+    // Function pointers
+    private delegate int CreateDXGIFactory1Delegate(ref Guid riid, out IntPtr ppFactory);
+    private static CreateDXGIFactory1Delegate? _createFactory;
+    private static IntPtr _dxgiHandle;
+    private static readonly object _initLock = new();
+
+    public static IReadOnlyList<GpuInfo> DetectGpus()
+    {
+        var gpus = new List<GpuInfo>();
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return gpus;
+
+        try
+        {
+            if (!TryLoadDxgi())
+                return gpus;
+
+            var iid = IID_IDXGIFactory1;
+            if (_createFactory!(ref iid, out var factoryPtr) != 0)
+                return gpus;
+
+            try
+            {
+                EnumerateAdapters(factoryPtr, gpus);
+            }
+            finally
+            {
+                Marshal.Release(factoryPtr);
+            }
+        }
+        catch
+        {
+            // DXGI not available
+        }
+
+        return gpus;
+    }
+
+    private static bool TryLoadDxgi()
+    {
+        if (_createFactory != null)
+            return true;
+
+        lock (_initLock)
+        {
+            if (_createFactory != null)
+                return true;
+
+            try
+            {
+                if (!NativeLibrary.TryLoad("dxgi.dll", out _dxgiHandle))
+                    return false;
+
+                if (!NativeLibrary.TryGetExport(_dxgiHandle, "CreateDXGIFactory1", out var funcPtr))
+                    return false;
+
+                _createFactory = Marshal.GetDelegateForFunctionPointer<CreateDXGIFactory1Delegate>(funcPtr);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    private static void EnumerateAdapters(IntPtr factory, List<GpuInfo> gpus)
+    {
+        // IDXGIFactory1::EnumAdapters1 is at vtable index 12
+        var enumAdapters = Marshal.GetDelegateForFunctionPointer<EnumAdaptersDelegate>(
+            GetVTableEntry(factory, 12));
+
+        uint adapterIndex = 0;
+        while (enumAdapters(factory, adapterIndex, out var adapterPtr) == 0)
+        {
+            try
+            {
+                var desc = GetAdapterDescription(adapterPtr);
+                if (desc.HasValue && !IsBasicRenderDriver(desc.Value))
+                {
+                    var vendor = GetVendorFromId(desc.Value.VendorId);
+                    gpus.Add(new GpuInfo
+                    {
+                        Vendor = vendor,
+                        DeviceName = desc.Value.Description,
+                        TotalMemoryBytes = (long)desc.Value.DedicatedVideoMemory
+                    });
+                }
+            }
+            finally
+            {
+                Marshal.Release(adapterPtr);
+            }
+            adapterIndex++;
+        }
+    }
+
+    private static DxgiAdapterDesc? GetAdapterDescription(IntPtr adapter)
+    {
+        // IDXGIAdapter1::GetDesc1 is at vtable index 10
+        var getDesc = Marshal.GetDelegateForFunctionPointer<GetDescDelegate>(
+            GetVTableEntry(adapter, 10));
+
+        var descBuffer = Marshal.AllocHGlobal(Marshal.SizeOf<DXGI_ADAPTER_DESC1>());
+        try
+        {
+            if (getDesc(adapter, descBuffer) != 0)
+                return null;
+
+            var nativeDesc = Marshal.PtrToStructure<DXGI_ADAPTER_DESC1>(descBuffer);
+            return new DxgiAdapterDesc
+            {
+                Description = nativeDesc.Description,
+                VendorId = nativeDesc.VendorId,
+                DedicatedVideoMemory = nativeDesc.DedicatedVideoMemory
+            };
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(descBuffer);
+        }
+    }
+
+    private static IntPtr GetVTableEntry(IntPtr obj, int index)
+    {
+        var vtable = Marshal.ReadIntPtr(obj);
+        return Marshal.ReadIntPtr(vtable, index * IntPtr.Size);
+    }
+
+    private static bool IsBasicRenderDriver(DxgiAdapterDesc desc)
+    {
+        // Skip Microsoft Basic Render Driver (software renderer)
+        return desc.VendorId == VENDOR_MICROSOFT ||
+               desc.Description.Contains("Basic Render", StringComparison.OrdinalIgnoreCase) ||
+               desc.Description.Contains("Microsoft", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static GpuVendor GetVendorFromId(uint vendorId) => vendorId switch
+    {
+        VENDOR_NVIDIA => GpuVendor.Nvidia,
+        VENDOR_AMD => GpuVendor.Amd,
+        VENDOR_INTEL => GpuVendor.Intel,
+        VENDOR_QUALCOMM => GpuVendor.Qualcomm,
+        _ => GpuVendor.Unknown
+    };
+
+    // Delegates for COM vtable calls
+    private delegate int EnumAdaptersDelegate(IntPtr factory, uint index, out IntPtr adapter);
+    private delegate int GetDescDelegate(IntPtr adapter, IntPtr desc);
+
+    // DXGI_ADAPTER_DESC1 structure
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct DXGI_ADAPTER_DESC1
+    {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string Description;
+        public uint VendorId;
+        public uint DeviceId;
+        public uint SubSysId;
+        public uint Revision;
+        public nuint DedicatedVideoMemory;
+        public nuint DedicatedSystemMemory;
+        public nuint SharedSystemMemory;
+        public long AdapterLuid;
+        public uint Flags;
+    }
+
+    private readonly struct DxgiAdapterDesc
+    {
+        public string Description { get; init; }
+        public uint VendorId { get; init; }
+        public nuint DedicatedVideoMemory { get; init; }
     }
 }
