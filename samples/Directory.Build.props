@@ -1,0 +1,7 @@
+<Project>
+  <!-- All sample projects are excluded from NuGet packaging -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+</Project>
