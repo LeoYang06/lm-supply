@@ -8,6 +8,8 @@
   <PropertyGroup>
     <!-- Common Build Settings -->
     <TargetFramework>net10.0</TargetFramework>
+    <!-- Only src/ projects are packable (override in src/Directory.Build.props) -->
+    <IsPackable>false</IsPackable>
     <LangVersion>preview</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
