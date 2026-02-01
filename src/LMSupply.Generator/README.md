@@ -1,11 +1,13 @@
 # LMSupply.Generator
 
-Local text generation and chat with ONNX Runtime GenAI.
+Local text generation and chat with ONNX Runtime GenAI and GGUF (llama-server).
 
 ## Features
 
 - **Zero-config**: Models download automatically from HuggingFace
-- **GPU Acceleration**: CUDA, DirectML (Windows), CoreML (macOS)
+- **GPU Acceleration**: CUDA, Vulkan, DirectML, CoreML, Metal
+- **GGUF Support**: Load any GGUF model via llama-server (auto-downloaded)
+- **Server Pooling**: Reuses llama-server instances for fast model switching
 - **MIT Models**: Phi-4 and Phi-3.5 models with no usage restrictions
 - **Chat Support**: Built-in chat formatters for various models
 

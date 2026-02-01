@@ -1,6 +1,6 @@
 # LMSupply.Generator
 
-Local text generation and chat with ONNX Runtime GenAI and GGUF (LLamaSharp) support.
+Local text generation and chat with ONNX Runtime GenAI and GGUF (llama-server) support.
 
 ## Installation
 
@@ -274,7 +274,7 @@ No additional packages required. Use `ExecutionProvider.Auto` (default) or force
 
 ## GGUF Model Support
 
-GGUF models are loaded via [LLamaSharp](https://github.com/SciSharp/LLamaSharp), providing access to the vast ecosystem of quantized models on HuggingFace.
+GGUF models are loaded via [llama-server](https://github.com/ggml-org/llama.cpp) (llama.cpp HTTP server), providing access to the vast ecosystem of quantized models on HuggingFace. The llama-server binaries are automatically downloaded and managed.
 
 ### Quick Start with GGUF
 
@@ -442,10 +442,10 @@ var autoOptions = LlamaOptions.GetOptimalForHardware();
 
 | Tier | BatchSize | UBatchSize | FlashAttention | TypeK/TypeV | GpuLayerCount |
 |------|-----------|------------|----------------|-------------|---------------|
-| Ultra | 2048 | 512 | true | Q8_0 | -1 (all GPU) |
-| High | 1024 | 512 | true | Q8_0 | -1 (all GPU) |
-| Medium | 512 | 256 | false | Q4_0 | -1 (all GPU) |
-| Low | 256 | 128 | false | F16 | 0 (CPU only) |
+| Ultra | 4096 | 1024 | true | Q8_0 | -1 (all GPU) |
+| High | 2048 | 512 | true | Q8_0 | -1 (all GPU) |
+| Medium | 1024 | 512 | false | Q4_0 | -1 (all GPU) |
+| Low | 512 | 256 | false | F16 | 0 (CPU only) |
 
 ### Performance Tuning Guide
 
@@ -616,17 +616,18 @@ Console.WriteLine($"Model: {info.ModelId}");
 Console.WriteLine($"Path: {info.ModelPath}");
 Console.WriteLine($"Context: {info.MaxContextLength}");
 Console.WriteLine($"Format: {info.ChatFormat}");
-Console.WriteLine($"Provider: {info.ExecutionProvider}");  // "LLamaSharp"
+Console.WriteLine($"Provider: {info.ExecutionProvider}");  // "llama-server-Vulkan"
 ```
 
 ### GGUF vs ONNX
 
-| Feature | GGUF (LLamaSharp) | ONNX (GenAI) |
-|---------|-------------------|--------------|
+| Feature | GGUF (llama-server) | ONNX (GenAI) |
+|---------|---------------------|--------------|
 | Model availability | Extensive | Limited |
 | Quantization options | Many (Q2-Q8) | FP16, INT4 |
 | Setup complexity | Simple | Simple |
-| GPU support | CUDA, Metal | CUDA, DirectML, CoreML |
+| GPU support | CUDA, Vulkan, Metal, ROCm | CUDA, DirectML, CoreML |
+| Server pooling | Yes (reuses servers) | N/A |
 | Memory efficiency | Good | Good |
 | Inference speed | Fast | Fast |
 
@@ -658,7 +659,7 @@ OGA Error: 1 instances of struct Generators::Tokenizer were leaked.
 
 - .NET 10.0+
 - ONNX Runtime GenAI 0.7+ (for ONNX models)
-- LLamaSharp 0.25+ (for GGUF models)
+- llama-server (auto-downloaded for GGUF models)
 - Windows, Linux, or macOS
 
 ## License
