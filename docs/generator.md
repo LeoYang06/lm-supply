@@ -651,7 +651,7 @@ OGA Error: 1 instances of struct Generators::Tokenizer were leaked.
 **Workarounds:**
 1. The warnings can be safely ignored for most use cases
 2. For long-running applications, consider periodic process restarts
-3. GGUF models (via LLamaSharp) do not exhibit this issue
+3. GGUF models (via llama-server) do not exhibit this issue
 
 **Status:** Tracking upstream fixes. LMSupply will update when OGA releases a fix.
 

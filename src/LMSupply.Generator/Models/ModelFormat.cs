@@ -12,7 +12,7 @@ public enum ModelFormat
     Onnx,
 
     /// <summary>
-    /// GGUF format (.gguf files) used by llama.cpp and LLamaSharp.
+    /// GGUF format (.gguf files) used by llama.cpp.
     /// Popular for quantized models on HuggingFace.
     /// </summary>
     Gguf,
@@ -34,7 +34,7 @@ public enum GeneratorBackendType
     OnnxGenAI,
 
     /// <summary>
-    /// llama.cpp backend via LLamaSharp.
+    /// llama.cpp backend via llama-server.
     /// </summary>
     LlamaCpp
 }

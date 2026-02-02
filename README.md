@@ -140,7 +140,7 @@ var generator = await TextGeneratorBuilder.Create()
 string response = await generator.GenerateCompleteAsync("What is machine learning?");
 Console.WriteLine(response);
 
-// GGUF models (via LLamaSharp) - Access to thousands of quantized models
+// GGUF models (via llama-server) - Access to thousands of quantized models
 await using var model = await LocalGenerator.LoadAsync("gguf:default");  // Llama 3.2 3B
 
 await foreach (var token in model.GenerateAsync("Hello, my name is"))
@@ -262,7 +262,7 @@ GGUF models are auto-detected by `-GGUF` or `_gguf` in repo name, or `.gguf` fil
 | `medium` | Phi-3.5-mini-instruct | 3.8B | 128K | MIT | Long context |
 | `multilingual` | gemma-2-2b-it | 2B | 8K | Gemma ToU | Multi-language |
 
-### Generator (GGUF via LLamaSharp)
+### Generator (GGUF via llama-server)
 
 | Alias | Model | Params | Context | Best For |
 |-------|-------|--------|---------|----------|

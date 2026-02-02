@@ -32,7 +32,7 @@ public enum KvCacheQuantizationType
 }
 
 /// <summary>
-/// Advanced configuration options for GGUF model loading and inference via LLamaSharp.
+/// Advanced configuration options for GGUF model loading and inference via llama-server.
 /// These options provide fine-grained control over llama.cpp backend behavior.
 /// </summary>
 public sealed class LlamaOptions

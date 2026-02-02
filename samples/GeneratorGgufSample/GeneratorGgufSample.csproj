@@ -12,8 +12,8 @@
   </ItemGroup>
 
   <!--
-    No LLamaSharp.Backend.* packages needed!
-    Native binaries are downloaded on-demand from NuGet.org at runtime.
+    No additional packages needed!
+    llama-server binaries are downloaded on-demand from GitHub releases at runtime.
   -->
 
 </Project>

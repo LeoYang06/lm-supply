@@ -31,7 +31,7 @@ public sealed class GeneratorOptions : LMSupplyOptionsBase
     public int MaxConcurrentRequests { get; set; } = 1;
 
     /// <summary>
-    /// Gets or sets advanced options for GGUF model loading via LLamaSharp.
+    /// Gets or sets advanced options for GGUF model loading via llama-server.
     /// If null, optimal settings are automatically determined based on hardware.
     /// Only applies to GGUF models (gguf:* aliases or .gguf files).
     /// </summary>
