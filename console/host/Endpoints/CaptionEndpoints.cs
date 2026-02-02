@@ -10,7 +10,7 @@ public static class CaptionEndpoints
     {
         var group = app.MapGroup("/v1/images")
             .WithTags("Vision")
-            .WithOpenApi();
+            ;
 
         // POST /v1/images/caption - Image captioning
         group.MapPost("/caption", async (HttpRequest request, ModelManagerService manager, CancellationToken ct) =>

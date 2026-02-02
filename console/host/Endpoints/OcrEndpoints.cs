@@ -10,7 +10,7 @@ public static class OcrEndpoints
     {
         var group = app.MapGroup("/v1/images")
             .WithTags("Vision")
-            .WithOpenApi();
+            ;
 
         // POST /v1/images/ocr - OCR text recognition
         group.MapPost("/ocr", async (HttpRequest request, ModelManagerService manager, CancellationToken ct) =>

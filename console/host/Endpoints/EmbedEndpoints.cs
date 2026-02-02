@@ -9,8 +9,7 @@ public static class EmbedEndpoints
     public static void MapEmbedEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/v1")
-            .WithTags("Embeddings")
-            .WithOpenApi();
+            .WithTags("Embeddings");
 
         // POST /v1/embeddings - OpenAI compatible
         group.MapPost("/embeddings", async (EmbeddingRequest request, ModelManagerService manager, CancellationToken ct) =>

@@ -10,7 +10,7 @@ public static class SegmentEndpoints
     {
         var group = app.MapGroup("/v1/images")
             .WithTags("Vision")
-            .WithOpenApi();
+            ;
 
         // POST /v1/images/segment - Image segmentation
         group.MapPost("/segment", async (HttpRequest request, ModelManagerService manager, CancellationToken ct) =>

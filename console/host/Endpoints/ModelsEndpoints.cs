@@ -11,8 +11,7 @@ public static class ModelsEndpoints
     {
         // OpenAI-compatible /v1/models endpoint
         var v1Group = app.MapGroup("/v1")
-            .WithTags("Models")
-            .WithOpenApi();
+            .WithTags("Models");
 
         // GET /v1/models - List available models (OpenAI compatible)
         v1Group.MapGet("/models", (ModelManagerService manager) =>
@@ -68,8 +67,7 @@ public static class ModelsEndpoints
 
         // Cache management endpoints (LMSupply-specific)
         var cacheGroup = app.MapGroup("/api/cache")
-            .WithTags("Cache")
-            .WithOpenApi();
+            .WithTags("Cache");
 
         // GET /api/cache/models - List cached models
         cacheGroup.MapGet("/models", (CacheService cache) =>
@@ -158,8 +156,7 @@ public static class ModelsEndpoints
 
         // Download endpoints
         var downloadGroup = app.MapGroup("/api/download")
-            .WithTags("Download")
-            .WithOpenApi();
+            .WithTags("Download");
 
         // POST /api/download/check - Check model availability on HuggingFace
         downloadGroup.MapPost("/check", async (ModelCheckRequest request, DownloadService download, CancellationToken ct) =>

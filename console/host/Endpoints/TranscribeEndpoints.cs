@@ -11,7 +11,7 @@ public static class TranscribeEndpoints
     {
         var group = app.MapGroup("/v1/audio")
             .WithTags("Audio")
-            .WithOpenApi();
+            ;
 
         // POST /v1/audio/transcriptions - OpenAI compatible
         group.MapPost("/transcriptions", async (HttpRequest request, ModelManagerService manager, CancellationToken ct) =>

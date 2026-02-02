@@ -11,7 +11,7 @@ public static class TranslateEndpoints
     {
         var group = app.MapGroup("/v1")
             .WithTags("Translate")
-            .WithOpenApi();
+            ;
 
         // POST /v1/translate
         group.MapPost("/translate", async (TranslateRequest request, ModelManagerService manager, CancellationToken ct) =>

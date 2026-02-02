@@ -11,7 +11,7 @@ public static class RerankEndpoints
     {
         var group = app.MapGroup("/v1")
             .WithTags("Rerank")
-            .WithOpenApi();
+            ;
 
         // POST /v1/rerank - Cohere API compatible
         group.MapPost("/rerank", async (RerankRequest request, ModelManagerService manager, CancellationToken ct) =>

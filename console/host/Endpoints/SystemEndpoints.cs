@@ -9,7 +9,7 @@ public static class SystemEndpoints
     {
         var group = app.MapGroup("/api/system")
             .WithTags("System")
-            .WithOpenApi();
+            ;
 
         // 시스템 상태
         group.MapGet("/status", (SystemMonitorService monitor, ModelManagerService modelManager) =>

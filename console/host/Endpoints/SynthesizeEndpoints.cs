@@ -10,7 +10,7 @@ public static class SynthesizeEndpoints
     {
         var group = app.MapGroup("/v1/audio")
             .WithTags("Audio")
-            .WithOpenApi();
+            ;
 
         // POST /v1/audio/speech - OpenAI compatible
         group.MapPost("/speech", async (SpeechRequest request, ModelManagerService manager, CancellationToken ct) =>

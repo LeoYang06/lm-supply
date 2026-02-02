@@ -11,7 +11,7 @@ public static class ImageEndpoints
     {
         var group = app.MapGroup("/v1/images")
             .WithTags("Images")
-            .WithOpenApi();
+            ;
 
         // POST /v1/images/generations - OpenAI compatible
         group.MapPost("/generations", async (

@@ -14,7 +14,7 @@ public static class ModelRegistryEndpoints
     {
         var group = app.MapGroup("/api/registry")
             .WithTags("Registry")
-            .WithOpenApi();
+            ;
 
         // GET /api/registry/models - Get all model types with their aliases
         group.MapGet("/models", (CacheService cache) =>

@@ -12,7 +12,7 @@ public static class ChatEndpoints
     {
         var group = app.MapGroup("/v1/chat")
             .WithTags("Chat")
-            .WithOpenApi();
+            ;
 
         // POST /v1/chat/completions - OpenAI compatible
         group.MapPost("/completions", async (ChatCompletionRequest request, HttpContext context, ModelManagerService manager) =>

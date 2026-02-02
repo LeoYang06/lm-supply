@@ -13,7 +13,7 @@
 
     <!-- Vision Dependencies -->
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
-    <PackageVersion Include="SixLabors.ImageSharp.Drawing" Version="2.1.5" />
+    <PackageVersion Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
 
     <!-- Audio Dependencies -->
     <PackageVersion Include="NAudio" Version="2.2.1" />
@@ -40,18 +40,18 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.23" />
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.61" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="FluentAssertions" Version="8.8.0" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
 
     <!-- Benchmarking -->
-    <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
 
     <!-- Console Host -->
-    <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.6.2" />
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="9.0.1" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.1" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+    <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.2" />
   </ItemGroup>
 
 </Project>

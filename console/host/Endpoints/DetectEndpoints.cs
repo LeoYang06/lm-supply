@@ -11,7 +11,7 @@ public static class DetectEndpoints
     {
         var group = app.MapGroup("/v1/images")
             .WithTags("Vision")
-            .WithOpenApi();
+            ;
 
         // POST /v1/images/detect - Object detection
         group.MapPost("/detect", async (HttpRequest request, ModelManagerService manager, CancellationToken ct) =>
