@@ -321,12 +321,12 @@ public class InteractiveSegmentationTests
     }
 
     [Fact]
-    public void SegFormerModels_ShouldNotBeInteractive()
+    public void NonInteractiveModels_ShouldNotBeInteractive()
     {
         DefaultModels.SegFormerB0.IsInteractive.Should().BeFalse();
-        DefaultModels.SegFormerB1.IsInteractive.Should().BeFalse();
-        DefaultModels.SegFormerB2.IsInteractive.Should().BeFalse();
-        DefaultModels.SegFormerB5.IsInteractive.Should().BeFalse();
+        DefaultModels.MediaPipeSelfie.IsInteractive.Should().BeFalse();
+        DefaultModels.MaskFormerResNet50.IsInteractive.Should().BeFalse();
+        DefaultModels.SegFormerB0Large.IsInteractive.Should().BeFalse();
     }
 
     #endregion

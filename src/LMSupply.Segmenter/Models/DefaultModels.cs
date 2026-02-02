@@ -8,86 +8,89 @@ public static class DefaultModels
 {
     /// <summary>
     /// SegFormer-B0 - Default lightweight model.
-    /// MIT license, 3.7M params, fast inference.
+    /// Apache-2.0 license, 3.7M params, fast inference.
+    /// Uses optimum ONNX-exported version (nvidia original has no ONNX).
     /// </summary>
     public static SegmenterModelInfo SegFormerB0 { get; } = new()
     {
-        Id = "nvidia/segformer-b0-finetuned-ade-512-512",
+        Id = "optimum/segformer-b0-finetuned-ade-512-512",
         Alias = "default",
         DisplayName = "SegFormer-B0",
         Architecture = "SegFormer",
         ParametersM = 3.7f,
-        SizeBytes = 15_000_000,
+        SizeBytes = 15_100_000,
         MIoU = 38.0f,
         InputSize = 512,
         NumClasses = 150,
         OnnxFile = "model.onnx",
         Dataset = "ADE20K",
         Description = "SegFormer-B0 for efficient semantic segmentation. Best for real-time applications.",
-        License = "MIT"
+        License = "Apache-2.0"
     };
 
     /// <summary>
-    /// SegFormer-B1 - Fast balanced model.
-    /// MIT license, 13.7M params.
+    /// MediaPipe Selfie Segmentation - Fast lightweight model.
+    /// Apache-2.0 license, MobileNetV3 architecture.
+    /// Optimized for person/background segmentation.
     /// </summary>
-    public static SegmenterModelInfo SegFormerB1 { get; } = new()
+    public static SegmenterModelInfo MediaPipeSelfie { get; } = new()
     {
-        Id = "nvidia/segformer-b1-finetuned-ade-512-512",
+        Id = "onnx-community/mediapipe_selfie_segmentation",
         Alias = "fast",
-        DisplayName = "SegFormer-B1",
-        Architecture = "SegFormer",
-        ParametersM = 13.7f,
-        SizeBytes = 55_000_000,
-        MIoU = 42.2f,
-        InputSize = 512,
-        NumClasses = 150,
+        DisplayName = "MediaPipe Selfie",
+        Architecture = "MobileNetV3",
+        ParametersM = 0.7f,
+        SizeBytes = 3_000_000,
+        MIoU = 0, // Not directly comparable - binary segmentation
+        InputSize = 256,
+        NumClasses = 2, // Background/Person
         OnnxFile = "model.onnx",
-        Dataset = "ADE20K",
-        Description = "SegFormer-B1 for balanced speed and accuracy.",
-        License = "MIT"
+        Dataset = "Selfie",
+        Description = "MediaPipe Selfie Segmentation for fast person/background segmentation.",
+        License = "Apache-2.0"
     };
 
     /// <summary>
-    /// SegFormer-B2 - Quality balanced model.
-    /// MIT license, 27.4M params.
+    /// MaskFormer ResNet50 - Quality model for ADE20K.
+    /// Apache-2.0 license, 27.4M params.
+    /// Full semantic segmentation with 150 classes.
     /// </summary>
-    public static SegmenterModelInfo SegFormerB2 { get; } = new()
+    public static SegmenterModelInfo MaskFormerResNet50 { get; } = new()
     {
-        Id = "nvidia/segformer-b2-finetuned-ade-512-512",
+        Id = "onnx-community/maskformer-resnet50-ade20k-full",
         Alias = "quality",
-        DisplayName = "SegFormer-B2",
-        Architecture = "SegFormer",
-        ParametersM = 27.4f,
-        SizeBytes = 110_000_000,
-        MIoU = 46.5f,
+        DisplayName = "MaskFormer ResNet50",
+        Architecture = "MaskFormer",
+        ParametersM = 44f,
+        SizeBytes = 178_000_000,
+        MIoU = 44.5f,
         InputSize = 512,
         NumClasses = 150,
         OnnxFile = "model.onnx",
         Dataset = "ADE20K",
-        Description = "SegFormer-B2 for higher accuracy segmentation.",
-        License = "MIT"
+        Description = "MaskFormer with ResNet50 for higher accuracy segmentation.",
+        License = "Apache-2.0"
     };
 
     /// <summary>
-    /// SegFormer-B5 - Large high-accuracy model.
-    /// MIT license, 84.6M params.
+    /// SegFormer-B0 (large alias) - Same as default, largest available ONNX model.
+    /// Note: Larger SegFormer variants (B2-B5) don't have official ONNX exports.
     /// </summary>
-    public static SegmenterModelInfo SegFormerB5 { get; } = new()
+    public static SegmenterModelInfo SegFormerB0Large { get; } = new()
     {
-        Id = "nvidia/segformer-b5-finetuned-ade-640-640",
+        Id = "optimum/segformer-b0-finetuned-ade-512-512",
         Alias = "large",
-        DisplayName = "SegFormer-B5",
+        DisplayName = "SegFormer-B0 (Quality)",
         Architecture = "SegFormer",
-        ParametersM = 84.6f,
-        SizeBytes = 340_000_000,
-        MIoU = 51.0f,
-        InputSize = 640,
+        ParametersM = 3.7f,
+        SizeBytes = 15_100_000,
+        MIoU = 38.0f,
+        InputSize = 512,
         NumClasses = 150,
         OnnxFile = "model.onnx",
         Dataset = "ADE20K",
-        Description = "SegFormer-B5 for highest accuracy. Best for offline processing.",
-        License = "MIT"
+        Description = "SegFormer-B0 - largest ONNX-available SegFormer variant.",
+        License = "Apache-2.0"
     };
 
     /// <summary>
@@ -118,9 +121,9 @@ public static class DefaultModels
     public static IReadOnlyList<SegmenterModelInfo> All { get; } =
     [
         SegFormerB0,
-        SegFormerB1,
-        SegFormerB2,
-        SegFormerB5,
+        MediaPipeSelfie,
+        MaskFormerResNet50,
+        SegFormerB0Large,
         MobileSAM
     ];
 }

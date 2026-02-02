@@ -114,7 +114,7 @@ public class DefaultModelsTests
         // Assert
         DefaultModels.EnUsLessac.Alias.Should().Be("default");
         DefaultModels.EnUsLessac.Language.Should().Be("en-US");
-        DefaultModels.EnUsLessac.VoiceName.Should().Be("en_US-lessac-medium");
+        DefaultModels.EnUsLessac.VoiceName.Should().Be("en/en_US/lessac/medium");
     }
 
     [Fact]

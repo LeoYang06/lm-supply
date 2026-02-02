@@ -11,19 +11,19 @@ public class DetectorModelRegistryTests
     [InlineData("default")]
     [InlineData("DEFAULT")]
     [InlineData("Default")]
-    public void Resolve_DefaultAlias_ShouldReturnRtDetrR18(string alias)
+    public void Resolve_DefaultAlias_ShouldReturnRtDetrV2S(string alias)
     {
         var model = _registry.Resolve(alias);
 
         model.Should().NotBeNull();
-        model.Id.Should().Be("PekingU/rtdetr_r18vd");
+        model.Id.Should().Be("xnorpx/rt-detr2-onnx:s");
         model.Alias.Should().Be("default");
     }
 
     [Theory]
-    [InlineData("quality", "PekingU/rtdetr_r50vd")]
-    [InlineData("fast", "Kalray/efficientdet-d0")]
-    [InlineData("large", "PekingU/rtdetr_r101vd")]
+    [InlineData("quality", "xnorpx/rt-detr2-onnx:m")]
+    [InlineData("fast", "xnorpx/rt-detr2-onnx:ms")]
+    [InlineData("large", "xnorpx/rt-detr2-onnx:l")]
     public void Resolve_BuiltInAliases_ShouldReturnCorrectModel(string alias, string expectedId)
     {
         var model = _registry.Resolve(alias);
@@ -35,10 +35,10 @@ public class DetectorModelRegistryTests
     [Fact]
     public void Resolve_FullModelId_ShouldReturnModel()
     {
-        var model = _registry.Resolve("PekingU/rtdetr_r18vd");
+        var model = _registry.Resolve("xnorpx/rt-detr2-onnx:s");
 
         model.Should().NotBeNull();
-        model.DisplayName.Should().Be("RT-DETR R18");
+        model.DisplayName.Should().Contain("RT-DETR v2");
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public class DetectorModelRegistryTests
     {
         var models = _registry.GetAll().ToList();
 
-        models.Should().HaveCount(4);
+        models.Should().HaveCount(5); // RtDetrV2S, RtDetrV2M, RtDetrV2L, RtDetrV2MS, RtDetrV2X
     }
 
     [Fact]
@@ -101,18 +101,17 @@ public class DetectorModelRegistryTests
     {
         var aliases = _registry.GetAliases().ToList();
 
-        aliases.Should().Contain(["default", "quality", "fast", "large"]);
+        aliases.Should().Contain(["default", "quality", "fast", "large", "xlarge"]);
     }
 
-    [Theory]
-    [InlineData("PekingU/rtdetr_r18vd", "RT-DETR", false)]
-    [InlineData("Kalray/efficientdet-d0", "EfficientDet", true)]
-    public void DefaultModels_ShouldHaveCorrectNmsSettings(string modelId, string architecture, bool requiresNms)
+    [Fact]
+    public void DefaultModels_ShouldAllBeNmsFree()
     {
-        var model = _registry.Resolve(modelId);
+        var models = _registry.GetAll();
 
-        model.Architecture.Should().Be(architecture);
-        model.RequiresNms.Should().Be(requiresNms);
+        // All RT-DETR v2 models are NMS-free
+        models.Should().OnlyContain(m => m.RequiresNms == false);
+        models.Should().OnlyContain(m => m.Architecture == "RT-DETR");
     }
 
     [Fact]

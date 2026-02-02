@@ -86,10 +86,10 @@ public sealed class SegmenterModelRegistry
     /// </summary>
     /// <remarks>
     /// Tier mapping (semantic segmentation focus):
-    /// - Low:    SegFormer-B0 (3.7M params) - lightweight
-    /// - Medium: SegFormer-B1 (13.7M params) - balanced
-    /// - High:   SegFormer-B2 (27.4M params) - quality
-    /// - Ultra:  SegFormer-B5 (84.6M params) - highest accuracy
+    /// - Low:    MediaPipe Selfie (0.7M params) - ultra lightweight, fast
+    /// - Medium: SegFormer-B0 (3.7M params) - balanced
+    /// - High:   MaskFormer ResNet50 (44M params) - quality
+    /// - Ultra:  MaskFormer ResNet50 (44M params) - highest accuracy
     /// </remarks>
     public static SegmenterModelInfo GetAutoModel()
     {
@@ -97,10 +97,10 @@ public sealed class SegmenterModelRegistry
 
         return tier switch
         {
-            PerformanceTier.Ultra => DefaultModels.SegFormerB5,
-            PerformanceTier.High => DefaultModels.SegFormerB2,
-            PerformanceTier.Medium => DefaultModels.SegFormerB1,
-            _ => DefaultModels.SegFormerB0
+            PerformanceTier.Ultra => DefaultModels.MaskFormerResNet50,
+            PerformanceTier.High => DefaultModels.MaskFormerResNet50,
+            PerformanceTier.Medium => DefaultModels.SegFormerB0,
+            _ => DefaultModels.MediaPipeSelfie
         };
     }
 

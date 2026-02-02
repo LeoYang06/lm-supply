@@ -2,62 +2,104 @@ namespace LMSupply.Detector.Models;
 
 /// <summary>
 /// Default detector model configurations.
-/// Based on research: RT-DETR (Apache 2.0) recommended for commercial use.
+/// Uses RT-DETR v2 ONNX models from xnorpx (Apache 2.0 compatible).
 /// YOLO models are AGPL-3.0 and require Ultralytics license for commercial use.
 /// </summary>
 public static class DefaultModels
 {
     /// <summary>
-    /// RT-DETR R18 - Default balanced model.
-    /// Apache 2.0 license, NMS-free, 46.5 mAP.
+    /// RT-DETR v2 Small - Default balanced model.
+    /// Apache 2.0 license, NMS-free, fast inference.
     /// </summary>
-    public static DetectorModelInfo RtDetrR18 { get; } = new()
+    public static DetectorModelInfo RtDetrV2S { get; } = new()
     {
-        Id = "PekingU/rtdetr_r18vd",
+        Id = "xnorpx/rt-detr2-onnx:s",
         Alias = "default",
-        DisplayName = "RT-DETR R18",
+        DisplayName = "RT-DETR v2 Small",
         Architecture = "RT-DETR",
         ParametersM = 20f,
-        SizeBytes = 80_000_000,
-        MapCoco = 46.5f,
+        SizeBytes = 80_500_000,
+        MapCoco = 48.1f,
         InputSize = 640,
         NumClasses = 80,
         RequiresNms = false,
-        OnnxFile = "model.onnx",
-        Description = "RT-DETR with ResNet-18 backbone. Best balance of speed and accuracy.",
+        OnnxFile = "rt-detrv2-s.onnx",
+        Description = "RT-DETR v2 Small for balanced speed and accuracy.",
         License = "Apache-2.0"
     };
 
     /// <summary>
-    /// RT-DETR R50 - Quality model.
-    /// Apache 2.0 license, NMS-free, 53.1 mAP.
+    /// RT-DETR v2 Medium - Quality model.
+    /// Apache 2.0 license, NMS-free, 51.9 mAP.
     /// </summary>
-    public static DetectorModelInfo RtDetrR50 { get; } = new()
+    public static DetectorModelInfo RtDetrV2M { get; } = new()
     {
-        Id = "PekingU/rtdetr_r50vd",
+        Id = "xnorpx/rt-detr2-onnx:m",
         Alias = "quality",
-        DisplayName = "RT-DETR R50",
+        DisplayName = "RT-DETR v2 Medium",
+        Architecture = "RT-DETR",
+        ParametersM = 36f,
+        SizeBytes = 133_000_000,
+        MapCoco = 51.9f,
+        InputSize = 640,
+        NumClasses = 80,
+        RequiresNms = false,
+        OnnxFile = "rt-detrv2-m.onnx",
+        Description = "RT-DETR v2 Medium for higher accuracy detection.",
+        License = "Apache-2.0"
+    };
+
+    /// <summary>
+    /// RT-DETR v2 Large - Large model.
+    /// Apache 2.0 license, NMS-free, 53.4 mAP.
+    /// </summary>
+    public static DetectorModelInfo RtDetrV2L { get; } = new()
+    {
+        Id = "xnorpx/rt-detr2-onnx:l",
+        Alias = "large",
+        DisplayName = "RT-DETR v2 Large",
         Architecture = "RT-DETR",
         ParametersM = 42f,
-        SizeBytes = 170_000_000,
-        MapCoco = 53.1f,
+        SizeBytes = 169_000_000,
+        MapCoco = 53.4f,
         InputSize = 640,
         NumClasses = 80,
         RequiresNms = false,
-        OnnxFile = "model.onnx",
-        Description = "RT-DETR with ResNet-50 backbone. Higher accuracy, moderate speed.",
+        OnnxFile = "rt-detrv2-l.onnx",
+        Description = "RT-DETR v2 Large for highest accuracy detection.",
         License = "Apache-2.0"
     };
 
     /// <summary>
-    /// RT-DETR R101 - Large model.
+    /// RT-DETR v2 Mini-Small - Fast/lightweight model.
+    /// Apache 2.0 license, NMS-free, smaller than Small variant.
+    /// </summary>
+    public static DetectorModelInfo RtDetrV2MS { get; } = new()
+    {
+        Id = "xnorpx/rt-detr2-onnx:ms",
+        Alias = "fast",
+        DisplayName = "RT-DETR v2 Mini-Small",
+        Architecture = "RT-DETR",
+        ParametersM = 15f,
+        SizeBytes = 126_000_000,
+        MapCoco = 46.0f,
+        InputSize = 640,
+        NumClasses = 80,
+        RequiresNms = false,
+        OnnxFile = "rt-detrv2-ms.onnx",
+        Description = "RT-DETR v2 Mini-Small for lightweight/fast inference.",
+        License = "Apache-2.0"
+    };
+
+    /// <summary>
+    /// RT-DETR v2 Extra Large - Highest accuracy model.
     /// Apache 2.0 license, NMS-free, 54.3 mAP.
     /// </summary>
-    public static DetectorModelInfo RtDetrR101 { get; } = new()
+    public static DetectorModelInfo RtDetrV2X { get; } = new()
     {
-        Id = "PekingU/rtdetr_r101vd",
-        Alias = "large",
-        DisplayName = "RT-DETR R101",
+        Id = "xnorpx/rt-detr2-onnx:x",
+        Alias = "xlarge",
+        DisplayName = "RT-DETR v2 XLarge",
         Architecture = "RT-DETR",
         ParametersM = 76f,
         SizeBytes = 300_000_000,
@@ -65,40 +107,26 @@ public static class DefaultModels
         InputSize = 640,
         NumClasses = 80,
         RequiresNms = false,
-        OnnxFile = "model.onnx",
-        Description = "RT-DETR with ResNet-101 backbone. Highest accuracy.",
+        OnnxFile = "rt-detrv2-x.onnx",
+        Description = "RT-DETR v2 Extra Large for maximum accuracy.",
         License = "Apache-2.0"
     };
 
-    /// <summary>
-    /// EfficientDet-D0 - Fast/lightweight model.
-    /// Apache 2.0 license, requires NMS, 33.8 mAP.
-    /// </summary>
-    public static DetectorModelInfo EfficientDetD0 { get; } = new()
-    {
-        Id = "Kalray/efficientdet-d0",
-        Alias = "fast",
-        DisplayName = "EfficientDet-D0",
-        Architecture = "EfficientDet",
-        ParametersM = 3.9f,
-        SizeBytes = 15_000_000,
-        MapCoco = 33.8f,
-        InputSize = 512,
-        NumClasses = 80,
-        RequiresNms = true,
-        OnnxFile = "efficientdet-d0.onnx",
-        Description = "EfficientDet-D0 for lightweight/fast inference.",
-        License = "Apache-2.0"
-    };
+    // Backward compatibility aliases
+    public static DetectorModelInfo RtDetrR18 => RtDetrV2S;
+    public static DetectorModelInfo RtDetrR50 => RtDetrV2M;
+    public static DetectorModelInfo RtDetrR101 => RtDetrV2L;
+    public static DetectorModelInfo EfficientDetD0 => RtDetrV2MS;
 
     /// <summary>
     /// Gets all default models.
     /// </summary>
     public static IReadOnlyList<DetectorModelInfo> All { get; } =
     [
-        RtDetrR18,
-        RtDetrR50,
-        RtDetrR101,
-        EfficientDetD0
+        RtDetrV2S,
+        RtDetrV2M,
+        RtDetrV2L,
+        RtDetrV2MS,
+        RtDetrV2X
     ];
 }

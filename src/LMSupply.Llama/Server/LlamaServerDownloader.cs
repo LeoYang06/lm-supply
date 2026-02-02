@@ -364,7 +364,15 @@ public sealed class LlamaServerDownloader : IDisposable
         }
 
         // GPU builds: llama-b7898-bin-win-vulkan-x64.zip
-        return new Regex($@"llama-b\d+-bin-{os}-{backendStr}-{archStr}\.(zip|tar\.gz)$", RegexOptions.IgnoreCase);
+        // CUDA builds have minor version: llama-b7902-bin-win-cuda-12.4-x64.zip
+        // HIP builds have suffix: llama-b7902-bin-win-hip-radeon-x64.zip
+        var backendPattern = backend switch
+        {
+            LlamaServerBackend.Cuda12 or LlamaServerBackend.Cuda13 => $@"{backendStr}\.\d+",
+            LlamaServerBackend.Hip => @"hip-radeon",
+            _ => backendStr
+        };
+        return new Regex($@"llama-b\d+-bin-{os}-{backendPattern}-{archStr}\.(zip|tar\.gz)$", RegexOptions.IgnoreCase);
     }
 
     public void Dispose()

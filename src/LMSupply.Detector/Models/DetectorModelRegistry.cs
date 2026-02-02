@@ -86,10 +86,10 @@ public sealed class DetectorModelRegistry
     /// </summary>
     /// <remarks>
     /// Tier mapping:
-    /// - Low:    EfficientDet-D0 (3.9M params) - fast, lightweight
-    /// - Medium: RT-DETR R18 (20M params) - balanced
-    /// - High:   RT-DETR R50 (42M params) - quality
-    /// - Ultra:  RT-DETR R101 (76M params) - highest accuracy
+    /// - Low:    RT-DETR v2 Mini-Small (15M params) - fast, lightweight
+    /// - Medium: RT-DETR v2 Small (20M params) - balanced
+    /// - High:   RT-DETR v2 Medium (36M params) - quality
+    /// - Ultra:  RT-DETR v2 Large (42M params) - highest accuracy
     /// </remarks>
     public static DetectorModelInfo GetAutoModel()
     {
@@ -97,10 +97,10 @@ public sealed class DetectorModelRegistry
 
         return tier switch
         {
-            PerformanceTier.Ultra => DefaultModels.RtDetrR101,
-            PerformanceTier.High => DefaultModels.RtDetrR50,
-            PerformanceTier.Medium => DefaultModels.RtDetrR18,
-            _ => DefaultModels.EfficientDetD0
+            PerformanceTier.Ultra => DefaultModels.RtDetrV2L,
+            PerformanceTier.High => DefaultModels.RtDetrV2M,
+            PerformanceTier.Medium => DefaultModels.RtDetrV2S,
+            _ => DefaultModels.RtDetrV2MS
         };
     }
 

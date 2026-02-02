@@ -76,14 +76,15 @@ public static class DefaultModels
     };
 
     /// <summary>
-    /// Whisper Medium - High quality model.
+    /// Whisper Medium (English) with timestamps - High quality model.
     /// MIT license, 769M params, ~3GB.
+    /// Note: onnx-community/whisper-medium is gated; using English-only timestamped variant.
     /// </summary>
     public static TranscriberModelInfo WhisperMedium { get; } = new()
     {
-        Id = "onnx-community/whisper-medium",
+        Id = "onnx-community/whisper-medium.en_timestamped",
         Alias = "medium",
-        DisplayName = "Whisper Medium",
+        DisplayName = "Whisper Medium (English)",
         Architecture = "Whisper",
         ParametersM = 769f,
         SizeBytes = 3_000_000_000,
@@ -92,8 +93,9 @@ public static class DefaultModels
         SampleRate = 16000,
         NumMelBins = 80,
         HiddenSize = 1024,
-        IsMultilingual = true,
-        Description = "Whisper Medium for high quality transcription.",
+        IsMultilingual = false,
+        SupportedLanguages = ["en"],
+        Description = "Whisper Medium for high quality English transcription with word-level timestamps.",
         License = "MIT",
         DecoderFile = "decoder_model_merged.onnx"
     };
