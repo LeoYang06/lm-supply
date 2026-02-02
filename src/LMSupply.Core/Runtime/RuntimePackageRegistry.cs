@@ -40,10 +40,15 @@ public static class RuntimePackageRegistry
     }
 
     // ONNX Runtime package mappings
+    // Note: CUDA packages use platform-specific overrides via CudaPackagesByPlatform,
+    // but entries here are needed for GetSupportedProviders() to return cuda11/cuda12
     private static readonly Dictionary<string, PackageConfig> OnnxRuntimePackages = new(StringComparer.OrdinalIgnoreCase)
     {
         [Providers.Cpu] = new("Microsoft.ML.OnnxRuntime", "onnxruntime"),
         [Providers.DirectML] = new("Microsoft.ML.OnnxRuntime.DirectML", "onnxruntime"),
+        [Providers.Cuda] = new("Microsoft.ML.OnnxRuntime.Gpu", "onnxruntime", ["onnxruntime_providers_cuda", "onnxruntime_providers_shared"]),
+        [Providers.Cuda11] = new("Microsoft.ML.OnnxRuntime.Gpu", "onnxruntime", ["onnxruntime_providers_cuda", "onnxruntime_providers_shared"]),
+        [Providers.Cuda12] = new("Microsoft.ML.OnnxRuntime.Gpu", "onnxruntime", ["onnxruntime_providers_cuda", "onnxruntime_providers_shared"]),
     };
 
     // ONNX Runtime GenAI package mappings

@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using LMSupply.Generator;
 using LMSupply.Generator.Models;
-using LMSupply.Llama;
 
 namespace LMSupply.Integration.Tests;
 
@@ -31,9 +30,12 @@ public class GeneratorBenchmarkTests
         Console.WriteLine($"Load time: {loadSw.ElapsedMilliseconds}ms");
         Console.WriteLine();
 
-        // Runtime info
+        // Runtime info from model
         Console.WriteLine("=== Runtime ===");
-        Console.WriteLine(LlamaRuntimeManager.Instance.GetEnvironmentSummary());
+        Console.WriteLine($"Runtime: {info.RuntimeVersion ?? "unknown"}");
+        Console.WriteLine($"Provider: {info.ExecutionProvider}");
+        Console.WriteLine($"GPU Active: {model.IsGpuActive}");
+        Console.WriteLine($"Providers: {string.Join(", ", model.ActiveProviders)}");
         Console.WriteLine();
 
         // Warmup

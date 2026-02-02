@@ -67,7 +67,7 @@ public sealed class RuntimeVersionStateFile
     public int SchemaVersion { get; set; } = 1;
 
     /// <summary>
-    /// Package states keyed by package key (e.g., "llamasharp|vulkan|win-x64").
+    /// Package states keyed by package key (e.g., "llama-server|vulkan|win-x64").
     /// </summary>
     public Dictionary<string, RuntimeVersionState> Packages { get; set; } = new();
 }

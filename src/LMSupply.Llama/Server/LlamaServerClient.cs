@@ -56,8 +56,16 @@ public sealed class LlamaServerClient : IDisposable
             MaxTokens = options.MaxTokens,
             Temperature = options.Temperature,
             TopP = options.TopP,
+            TopK = options.TopK > 0 ? options.TopK : null,
+            MinP = options.MinP > 0 ? options.MinP : null,
+            RepeatPenalty = options.RepeatPenalty != 1.0f ? options.RepeatPenalty : null,
+            FrequencyPenalty = options.FrequencyPenalty != 0 ? options.FrequencyPenalty : null,
+            PresencePenalty = options.PresencePenalty != 0 ? options.PresencePenalty : null,
+            Seed = options.Seed != -1 ? options.Seed : null,
             Stream = true,
-            Stop = options.StopSequences?.ToList()
+            Stop = options.StopSequences?.ToList(),
+            Grammar = options.Grammar,
+            JsonSchema = options.JsonSchema
         };
 
         var json = JsonSerializer.Serialize(request, JsonOptions);
@@ -145,8 +153,16 @@ public sealed class LlamaServerClient : IDisposable
             NPredict = options.MaxTokens,
             Temperature = options.Temperature,
             TopP = options.TopP,
+            TopK = options.TopK > 0 ? options.TopK : null,
+            MinP = options.MinP > 0 ? options.MinP : null,
+            RepeatPenalty = options.RepeatPenalty != 1.0f ? options.RepeatPenalty : null,
+            FrequencyPenalty = options.FrequencyPenalty != 0 ? options.FrequencyPenalty : null,
+            PresencePenalty = options.PresencePenalty != 0 ? options.PresencePenalty : null,
+            Seed = options.Seed != -1 ? options.Seed : null,
             Stream = true,
-            Stop = options.StopSequences?.ToList()
+            Stop = options.StopSequences?.ToList(),
+            Grammar = options.Grammar,
+            JsonSchema = options.JsonSchema
         };
 
         var json = JsonSerializer.Serialize(request, JsonOptions);
@@ -215,6 +231,97 @@ public sealed class LlamaServerClient : IDisposable
         }
     }
 
+    #region Embedding API
+
+    /// <summary>
+    /// Generates embeddings for a single text input.
+    /// Requires server started with --embedding flag.
+    /// </summary>
+    public async Task<float[]> GenerateEmbeddingAsync(
+        string input,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await GenerateEmbeddingsBatchAsync([input], cancellationToken);
+        return result[0];
+    }
+
+    /// <summary>
+    /// Generates embeddings for multiple text inputs in batch.
+    /// Requires server started with --embedding flag.
+    /// </summary>
+    public async Task<float[][]> GenerateEmbeddingsBatchAsync(
+        IReadOnlyList<string> inputs,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new EmbeddingRequest
+        {
+            Input = inputs.Count == 1 ? inputs[0] : inputs
+        };
+
+        var json = JsonSerializer.Serialize(request, JsonOptions);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var response = await _httpClient.PostAsync(
+            $"{_baseUrl}/v1/embeddings",
+            content,
+            cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        var embeddingResponse = JsonSerializer.Deserialize<EmbeddingResponse>(responseJson, JsonOptions);
+
+        if (embeddingResponse?.Data == null || embeddingResponse.Data.Count == 0)
+        {
+            throw new InvalidOperationException("No embeddings returned from server");
+        }
+
+        // Sort by index to ensure correct order
+        return embeddingResponse.Data
+            .OrderBy(d => d.Index)
+            .Select(d => d.Embedding)
+            .ToArray();
+    }
+
+    #endregion
+
+    #region Reranking API
+
+    /// <summary>
+    /// Reranks documents by relevance to a query.
+    /// Requires server started with --embedding and --pooling rank flags.
+    /// </summary>
+    public async Task<IReadOnlyList<RerankResult>> RerankAsync(
+        string query,
+        IReadOnlyList<string> documents,
+        int topN = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new RerankRequest
+        {
+            Query = query,
+            Documents = documents.ToList(),
+            TopN = Math.Min(topN, documents.Count)
+        };
+
+        var json = JsonSerializer.Serialize(request, JsonOptions);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var response = await _httpClient.PostAsync(
+            $"{_baseUrl}/v1/rerank",
+            content,
+            cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        var rerankResponse = JsonSerializer.Deserialize<RerankResponse>(responseJson, JsonOptions);
+
+        return rerankResponse?.Results ?? [];
+    }
+
+    #endregion
+
     public void Dispose()
     {
         if (_ownsHttpClient)
@@ -250,7 +357,24 @@ public sealed class ChatCompletionOptions
     public int MaxTokens { get; init; } = 256;
     public float Temperature { get; init; } = 0.7f;
     public float TopP { get; init; } = 0.9f;
+    public int TopK { get; init; } = 50;
+    public float MinP { get; init; } = 0.05f;
+    public float RepeatPenalty { get; init; } = 1.1f;
+    public float FrequencyPenalty { get; init; } = 0.0f;
+    public float PresencePenalty { get; init; } = 0.0f;
+    public int Seed { get; init; } = -1;
     public IReadOnlyList<string>? StopSequences { get; init; }
+
+    /// <summary>
+    /// Grammar constraint in GBNF format (Phase 3).
+    /// </summary>
+    public string? Grammar { get; init; }
+
+    /// <summary>
+    /// JSON schema for structured output (Phase 3).
+    /// When set, output will be constrained to match this schema.
+    /// </summary>
+    public string? JsonSchema { get; init; }
 }
 
 /// <summary>
@@ -261,7 +385,24 @@ public sealed class CompletionOptions
     public int MaxTokens { get; init; } = 256;
     public float Temperature { get; init; } = 0.7f;
     public float TopP { get; init; } = 0.9f;
+    public int TopK { get; init; } = 50;
+    public float MinP { get; init; } = 0.05f;
+    public float RepeatPenalty { get; init; } = 1.1f;
+    public float FrequencyPenalty { get; init; } = 0.0f;
+    public float PresencePenalty { get; init; } = 0.0f;
+    public int Seed { get; init; } = -1;
     public IReadOnlyList<string>? StopSequences { get; init; }
+
+    /// <summary>
+    /// Grammar constraint in GBNF format (Phase 3).
+    /// </summary>
+    public string? Grammar { get; init; }
+
+    /// <summary>
+    /// JSON schema for structured output (Phase 3).
+    /// When set, output will be constrained to match this schema.
+    /// </summary>
+    public string? JsonSchema { get; init; }
 }
 
 internal sealed class ChatCompletionRequest
@@ -270,8 +411,24 @@ internal sealed class ChatCompletionRequest
     public int? MaxTokens { get; set; }
     public float? Temperature { get; set; }
     public float? TopP { get; set; }
+    public int? TopK { get; set; }
+    public float? MinP { get; set; }
+    public float? RepeatPenalty { get; set; }
+    public float? FrequencyPenalty { get; set; }
+    public float? PresencePenalty { get; set; }
+    public int? Seed { get; set; }
     public bool Stream { get; set; }
     public List<string>? Stop { get; set; }
+
+    /// <summary>
+    /// Grammar constraint in GBNF format (Phase 3).
+    /// </summary>
+    public string? Grammar { get; set; }
+
+    /// <summary>
+    /// JSON schema for structured output (Phase 3).
+    /// </summary>
+    public string? JsonSchema { get; set; }
 
     /// <summary>
     /// Re-use KV cache from previous request if possible.
@@ -286,8 +443,24 @@ internal sealed class CompletionRequest
     public int? NPredict { get; set; }
     public float? Temperature { get; set; }
     public float? TopP { get; set; }
+    public int? TopK { get; set; }
+    public float? MinP { get; set; }
+    public float? RepeatPenalty { get; set; }
+    public float? FrequencyPenalty { get; set; }
+    public float? PresencePenalty { get; set; }
+    public int? Seed { get; set; }
     public bool Stream { get; set; }
     public List<string>? Stop { get; set; }
+
+    /// <summary>
+    /// Grammar constraint in GBNF format (Phase 3).
+    /// </summary>
+    public string? Grammar { get; set; }
+
+    /// <summary>
+    /// JSON schema for structured output (Phase 3).
+    /// </summary>
+    public string? JsonSchema { get; set; }
 
     /// <summary>
     /// Re-use KV cache from previous request if possible.
@@ -316,6 +489,92 @@ internal sealed class CompletionChunk
 {
     public string? Content { get; set; }
     public bool Stop { get; set; }
+}
+
+#endregion
+
+#region Embedding Request/Response Models
+
+internal sealed class EmbeddingRequest
+{
+    /// <summary>
+    /// Input text(s) to embed. Can be a single string or array of strings.
+    /// </summary>
+    public required object Input { get; set; }
+
+    /// <summary>
+    /// Model identifier (optional, defaults to loaded model).
+    /// </summary>
+    public string Model { get; set; } = "default";
+
+    /// <summary>
+    /// Encoding format: "float" (default) or "base64".
+    /// </summary>
+    public string EncodingFormat { get; set; } = "float";
+}
+
+internal sealed class EmbeddingResponse
+{
+    public string Object { get; set; } = "list";
+    public List<EmbeddingData> Data { get; set; } = [];
+    public string Model { get; set; } = "";
+    public EmbeddingUsage Usage { get; set; } = new();
+}
+
+internal sealed class EmbeddingData
+{
+    public string Object { get; set; } = "embedding";
+    public float[] Embedding { get; set; } = [];
+    public int Index { get; set; }
+}
+
+internal sealed class EmbeddingUsage
+{
+    public int PromptTokens { get; set; }
+    public int TotalTokens { get; set; }
+}
+
+#endregion
+
+#region Reranking Request/Response Models
+
+internal sealed class RerankRequest
+{
+    /// <summary>
+    /// The search query.
+    /// </summary>
+    public required string Query { get; set; }
+
+    /// <summary>
+    /// Documents to rerank.
+    /// </summary>
+    public required List<string> Documents { get; set; }
+
+    /// <summary>
+    /// Maximum number of results to return.
+    /// </summary>
+    public int TopN { get; set; } = 10;
+}
+
+internal sealed class RerankResponse
+{
+    public List<RerankResult> Results { get; set; } = [];
+}
+
+/// <summary>
+/// Result from reranking operation.
+/// </summary>
+public sealed class RerankResult
+{
+    /// <summary>
+    /// Original index of the document in the input list.
+    /// </summary>
+    public int Index { get; set; }
+
+    /// <summary>
+    /// Relevance score (higher is more relevant).
+    /// </summary>
+    public float RelevanceScore { get; set; }
 }
 
 #endregion

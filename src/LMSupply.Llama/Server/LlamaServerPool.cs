@@ -111,7 +111,7 @@ public sealed class LlamaServerPool : IAsyncDisposable
         IProgress<DownloadProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var key = MakeKey(config.ModelPath, backend, config.ContextSize);
+        var key = MakeKey(config.ModelPath, backend, config.ContextSize, config.Mode);
 
         // Try to get existing server
         if (_servers.TryGetValue(key, out var pooledServer))
@@ -248,8 +248,8 @@ public sealed class LlamaServerPool : IAsyncDisposable
         }
     }
 
-    private static string MakeKey(string modelPath, LlamaServerBackend backend, int contextSize)
-        => $"{modelPath}|{backend}|{contextSize}";
+    private static string MakeKey(string modelPath, LlamaServerBackend backend, int contextSize, ServerMode mode = ServerMode.Generation)
+        => $"{modelPath}|{backend}|{contextSize}|{mode}";
 
     public async ValueTask DisposeAsync()
     {

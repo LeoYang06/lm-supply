@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <PackageId>LMSupply.Llama</PackageId>
-    <Description>Shared LLamaSharp/llama.cpp runtime management for LMSupply. Provides on-demand native binary downloading, GPU detection, and fallback chain support.</Description>
-    <PackageTags>LMSupply;llama;llama.cpp;llamasharp;gguf;gpu;cuda;metal;vulkan</PackageTags>
+    <Description>llama.cpp server management for LMSupply. Provides llama-server downloading, GPU detection, and server pooling for GGUF model inference.</Description>
+    <PackageTags>LMSupply;llama;llama.cpp;gguf;gpu;cuda;metal;vulkan</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
@@ -18,10 +18,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- LLamaSharp for GGUF model inference (llama.cpp .NET binding) -->
-    <!-- ExcludeAssets="native" - native binaries downloaded on-demand via LlamaRuntimeManager -->
-    <PackageReference Include="LLamaSharp" ExcludeAssets="native" />
-
     <!-- Process management for llama-server -->
     <PackageReference Include="ChildProcessGuard" />
   </ItemGroup>

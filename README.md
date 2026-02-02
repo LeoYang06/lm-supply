@@ -70,7 +70,7 @@ float[] embedding = await model.EmbedAsync("Hello, world!");
 | [LMSupply.Translator](docs/translator.md) | Neural machine translation | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Translator.svg)](https://www.nuget.org/packages/LMSupply.Translator) |
 | [LMSupply.Transcriber](docs/transcriber.md) | Speech → Text (Whisper) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Transcriber.svg)](https://www.nuget.org/packages/LMSupply.Transcriber) |
 | [LMSupply.Synthesizer](docs/synthesizer.md) | Text → Speech (Piper) | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Synthesizer.svg)](https://www.nuget.org/packages/LMSupply.Synthesizer) |
-| [LMSupply.Llama](docs/llama.md) | Shared llama.cpp runtime for GGUF | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Llama.svg)](https://www.nuget.org/packages/LMSupply.Llama) |
+| [LMSupply.Llama](docs/llama.md) | Shared llama-server management for GGUF | [![NuGet](https://img.shields.io/nuget/v/LMSupply.Llama.svg)](https://www.nuget.org/packages/LMSupply.Llama) |
 
 ---
 
@@ -98,7 +98,7 @@ float[][] embeddings = await model.EmbedAsync(new[]
 // Similarity
 float similarity = LocalEmbedder.CosineSimilarity(embeddings[0], embeddings[1]);
 
-// GGUF models (via LLamaSharp) - Auto-detected by repo name pattern
+// GGUF models (via llama-server) - Auto-detected by repo name pattern
 await using var ggufModel = await LocalEmbedder.LoadAsync("nomic-ai/nomic-embed-text-v1.5-GGUF");
 float[] ggufEmbedding = await ggufModel.EmbedAsync("Hello from GGUF!");
 ```
@@ -231,7 +231,7 @@ Console.WriteLine($"Real-time factor: {result.RealTimeFactor:F1}x");
 | `large` | nomic-embed-text-v1.5 | 768 | 137M | 8192 | Long context RAG |
 | `multilingual` | bge-m3 | 1024 | 568M | 8192 | 100+ languages, SOTA |
 
-### Embedder (GGUF via LLamaSharp)
+### Embedder (GGUF via llama-server)
 
 GGUF models are auto-detected by `-GGUF` or `_gguf` in repo name, or `.gguf` file extension.
 
@@ -242,7 +242,7 @@ GGUF models are auto-detected by `-GGUF` or `_gguf` in repo name, or `.gguf` fil
 | `BAAI/bge-base-en-v1.5-GGUF` | 768 | 512 | Quality balance |
 | Any HuggingFace GGUF embedding repo | varies | varies | Custom models |
 
-### Reranker
+### Reranker (ONNX)
 
 | Alias | Model | Params | Context | Best For |
 |-------|-------|--------|---------|----------|
@@ -251,6 +251,15 @@ GGUF models are auto-detected by `-GGUF` or `_gguf` in repo name, or `.gguf` fil
 | `quality` | bge-reranker-base | 278M | 512 | Higher accuracy |
 | `large` | bge-reranker-large | 560M | 512 | Best accuracy |
 | `multilingual` | bge-reranker-v2-m3 | 568M | 8192 | Long docs, 100+ languages |
+
+### Reranker (GGUF via llama-server)
+
+GGUF reranker models are auto-detected by `-GGUF` or `_gguf` in repo name.
+
+| Model Repository | Context | Best For |
+|------------------|---------|----------|
+| `BAAI/bge-reranker-v2-m3-GGUF` | 8K | Multilingual, long docs |
+| `jinaai/jina-reranker-v2-base-multilingual-GGUF` | 8K | Multilingual |
 
 ### Generator (ONNX)
 

@@ -133,6 +133,34 @@ public sealed class LlamaOptions
     /// </summary>
     public uint? UBatchSize { get; set; }
 
+    #region Phase 3: Multimodal Support
+
+    /// <summary>
+    /// Gets or sets the path to a multimodal projector file (mmproj).
+    /// Required for vision models like LLaVA, Qwen-VL, InternVL, etc.
+    /// The projector bridges visual features with the language model.
+    /// </summary>
+    public string? MultimodalProjector { get; set; }
+
+    #endregion
+
+    #region Phase 3: LoRA Support
+
+    /// <summary>
+    /// Gets or sets the path to a LoRA adapter file.
+    /// Allows loading fine-tuned adapters without modifying base model weights.
+    /// </summary>
+    public string? LoraPath { get; set; }
+
+    /// <summary>
+    /// Gets or sets the LoRA adapter scale factor.
+    /// Controls the strength of LoRA adaptation. Default: 1.0.
+    /// Lower values reduce the adapter's effect, higher values increase it.
+    /// </summary>
+    public float? LoraScale { get; set; }
+
+    #endregion
+
     /// <summary>
     /// Gets optimal LlamaOptions based on current hardware profile.
     /// </summary>

@@ -278,7 +278,7 @@ public static class LocalEmbedder
                 modelIdOrPath);
         }
 
-        return await GgufEmbeddingModel.LoadAsync(
+        return await LlamaServerEmbeddingModel.LoadAsync(
             modelId,
             modelPath,
             options,

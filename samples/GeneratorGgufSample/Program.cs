@@ -3,7 +3,6 @@ using LMSupply;
 using LMSupply.Generator;
 using LMSupply.Generator.Abstractions;
 using LMSupply.Generator.Models;
-using LMSupply.Llama;
 
 Console.WriteLine("=== LMSupply GGUF Generator Sample ===\n");
 
@@ -29,11 +28,17 @@ Console.WriteLine($"Model: {info.ModelId}");
 Console.WriteLine($"Context: {info.MaxContextLength}");
 Console.WriteLine($"Format: {info.ChatFormat}");
 
-// Display engine/backend information
-var runtimeManager = LlamaRuntimeManager.Instance;
+// Display engine/backend information from model info
 Console.WriteLine();
 Console.WriteLine("=== Engine Information ===");
-Console.WriteLine(runtimeManager.GetEnvironmentSummary());
+Console.WriteLine($"GPU Active: {model.IsGpuActive}");
+Console.WriteLine($"Providers: {string.Join(", ", model.ActiveProviders)}");
+if (info.BackendLog != null)
+{
+    var firstLine = info.BackendLog.Split('\n').FirstOrDefault(l => l.Contains("server"));
+    if (!string.IsNullOrEmpty(firstLine))
+        Console.WriteLine($"Backend: {firstLine.Trim()}");
+}
 Console.WriteLine();
 
 // =============================================================================

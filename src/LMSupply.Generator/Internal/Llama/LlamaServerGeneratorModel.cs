@@ -8,7 +8,6 @@ namespace LMSupply.Generator.Internal.Llama;
 
 /// <summary>
 /// GGUF model implementation using llama-server (standalone llama.cpp HTTP server).
-/// This replaces LLamaSharp with direct llama.cpp binaries for optimal performance.
 /// Uses LlamaServerPool for server instance reuse across model loads.
 /// </summary>
 internal sealed class LlamaServerGeneratorModel : IGeneratorModel
@@ -124,6 +123,22 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel
             UBatchSize = llamaOpts.UBatchSize.HasValue ? (int)llamaOpts.UBatchSize.Value : null,
             Parallel = Math.Max(1, options.MaxConcurrentRequests),
             FlashAttention = llamaOpts.FlashAttention ?? false,
+            // Phase 1: KV cache quantization
+            CacheTypeK = MapKvCacheType(llamaOpts.TypeK),
+            CacheTypeV = MapKvCacheType(llamaOpts.TypeV),
+            // Phase 1: Memory options
+            UseMemoryMap = llamaOpts.UseMemoryMap,
+            UseMemoryLock = llamaOpts.UseMemoryLock,
+            // Phase 1: GPU options
+            MainGpu = llamaOpts.MainGpu,
+            // Phase 1: RoPE options
+            RopeFreqBase = llamaOpts.RopeFrequencyBase,
+            RopeFreqScale = llamaOpts.RopeFrequencyScale,
+            // Phase 3: Multimodal support
+            MultimodalProjector = llamaOpts.MultimodalProjector,
+            // Phase 3: LoRA support
+            LoraPath = llamaOpts.LoraPath,
+            LoraScale = llamaOpts.LoraScale,
             StartupTimeout = TimeSpan.FromSeconds(120),
             ShutdownTimeout = TimeSpan.FromSeconds(10),
             AdditionalArgs = additionalArgs.Count > 0 ? additionalArgs : null
@@ -204,7 +219,15 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel
                 MaxTokens = options.MaxNewTokens ?? options.MaxTokens,
                 Temperature = options.Temperature,
                 TopP = options.TopP,
-                StopSequences = MergeStopSequences(options.StopSequences)
+                TopK = options.TopK,
+                MinP = options.MinP,
+                RepeatPenalty = options.RepetitionPenalty,
+                FrequencyPenalty = options.FrequencyPenalty,
+                PresencePenalty = options.PresencePenalty,
+                Seed = options.Seed,
+                StopSequences = MergeStopSequences(options.StopSequences),
+                Grammar = options.Grammar,
+                JsonSchema = options.JsonSchema
             };
 
             // Initialize reasoning token filter if needed
@@ -275,7 +298,15 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel
                 MaxTokens = options.MaxNewTokens ?? options.MaxTokens,
                 Temperature = options.Temperature,
                 TopP = options.TopP,
-                StopSequences = MergeStopSequences(options.StopSequences)
+                TopK = options.TopK,
+                MinP = options.MinP,
+                RepeatPenalty = options.RepetitionPenalty,
+                FrequencyPenalty = options.FrequencyPenalty,
+                PresencePenalty = options.PresencePenalty,
+                Seed = options.Seed,
+                StopSequences = MergeStopSequences(options.StopSequences),
+                Grammar = options.Grammar,
+                JsonSchema = options.JsonSchema
             };
 
             // Initialize reasoning token filter if needed
@@ -392,6 +423,22 @@ internal sealed class LlamaServerGeneratorModel : IGeneratorModel
         }
 
         return merged.Count > 0 ? merged : null;
+    }
+
+    /// <summary>
+    /// Maps KV cache quantization type to llama-server CLI format.
+    /// </summary>
+    private static string? MapKvCacheType(KvCacheQuantizationType? type)
+    {
+        return type switch
+        {
+            KvCacheQuantizationType.F16 => "f16",
+            KvCacheQuantizationType.Q8_0 => "q8_0",
+            KvCacheQuantizationType.Q4_0 => "q4_0",
+            KvCacheQuantizationType.F32 => "f32",
+            null => null,
+            _ => null
+        };
     }
 
     private static LlamaServerBackend MapProviderToBackend(ExecutionProvider provider)

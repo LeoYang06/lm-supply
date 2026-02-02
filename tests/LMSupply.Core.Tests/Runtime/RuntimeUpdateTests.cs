@@ -227,10 +227,10 @@ public class RuntimeUpdateTests : IDisposable
     public async Task RuntimeVersionStateManager_GetPackageKey_FormatsCorrectly()
     {
         // Arrange & Act
-        var key = RuntimeVersionStateManager.GetPackageKey("llamasharp", "vulkan", "win-x64");
+        var key = RuntimeVersionStateManager.GetPackageKey("llama-server", "vulkan", "win-x64");
 
         // Assert
-        key.Should().Be("llamasharp|vulkan|win-x64");
+        key.Should().Be("llama-server|vulkan|win-x64");
     }
 
     [Fact]

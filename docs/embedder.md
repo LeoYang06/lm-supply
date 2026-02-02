@@ -2,7 +2,7 @@
 
 A lightweight, zero-configuration text embedding library for .NET with automatic GPU acceleration.
 
-Supports both **ONNX** models (sentence-transformers) and **GGUF** models (via LLamaSharp).
+Supports both **ONNX** models (sentence-transformers) and **GGUF** models (via llama-server).
 
 ## Installation
 
@@ -62,9 +62,9 @@ await using var model = await LocalEmbedder.LoadAsync("intfloat/multilingual-e5-
 
 The system automatically discovers the ONNX files in the repository.
 
-## GGUF Models (via LLamaSharp)
+## GGUF Models (via llama-server)
 
-GGUF embedding models are auto-detected by repo name patterns (`-GGUF`, `_gguf`) or `.gguf` extension.
+GGUF embedding models are auto-detected by repo name patterns (`-GGUF`, `_gguf`) or `.gguf` extension. LMSupply automatically downloads and manages llama-server binaries for GPU-accelerated inference.
 
 ```csharp
 using LMSupply.Embedder;
@@ -309,8 +309,9 @@ The directory should contain:
 
 | Feature | ONNX | GGUF |
 |---------|------|------|
-| Format | ONNX Runtime | llama.cpp |
+| Format | ONNX Runtime | llama-server |
 | GPU Support | CUDA, DirectML, CoreML | CUDA, Metal, Vulkan |
 | Quantization | FP32/FP16/INT8 | Q4/Q5/Q8/F16 |
 | Model Sources | HuggingFace ONNX repos | HuggingFace GGUF repos |
 | Best For | Standard transformers | Long context, quantized models |
+| Server Mode | In-process | HTTP server (pooled) |

@@ -2,6 +2,8 @@
 
 A lightweight, zero-configuration semantic reranking library for .NET using cross-encoder models.
 
+Supports both **ONNX** models and **GGUF** models (via llama-server).
+
 ## Installation
 
 ```bash
@@ -80,6 +82,39 @@ You can also use any HuggingFace cross-encoder model by its full ID:
 var reranker = await LocalReranker.LoadAsync("cross-encoder/ms-marco-MiniLM-L-12-v2");
 var reranker = await LocalReranker.LoadAsync("BAAI/bge-reranker-large");
 ```
+
+## GGUF Models (via llama-server)
+
+GGUF reranker models are auto-detected by repo name patterns (`-GGUF`, `_gguf`). LMSupply automatically downloads and manages llama-server binaries for GPU-accelerated inference.
+
+```csharp
+using LMSupply.Reranker;
+
+// Load GGUF reranker model
+await using var reranker = await LocalReranker.LoadAsync("BAAI/bge-reranker-v2-m3-GGUF");
+
+// Usage is identical to ONNX models
+var results = await reranker.RerankAsync(
+    "What is machine learning?",
+    new[] { "ML is a subset of AI...", "Weather is sunny today..." }
+);
+```
+
+### Available GGUF Reranker Models
+
+| Model Repository | Context | Best For |
+|------------------|---------|----------|
+| `BAAI/bge-reranker-v2-m3-GGUF` | 8K | Multilingual, long documents |
+| `jinaai/jina-reranker-v2-base-multilingual-GGUF` | 8K | Multilingual |
+
+### GGUF vs ONNX for Reranking
+
+| Feature | ONNX | GGUF |
+|---------|------|------|
+| GPU Support | CUDA, DirectML, CoreML | CUDA, Metal, Vulkan |
+| Quantization | FP32/FP16/INT8 | Q4/Q5/Q8/F16 |
+| Context Length | Model-dependent | Often longer (8K+) |
+| Best For | Standard cross-encoders | Large context, quantized |
 
 ## Configuration Options
 

@@ -5,7 +5,6 @@ using LMSupply.Detector;
 using LMSupply.Embedder;
 using LMSupply.Generator;
 using LMSupply.Generator.Models;
-using LMSupply.Llama;
 using LMSupply.Ocr;
 using LMSupply.Reranker;
 using LMSupply.Segmenter;
@@ -123,9 +122,9 @@ public class FastModelFunctionalTests : IAsyncLifetime
 
         tokenCount.Should().BeGreaterThan(10);
 
-        // Show runtime info
-        var runtimeInfo = LlamaRuntimeManager.Instance.GetEnvironmentSummary();
-        Console.WriteLine($"Runtime: {runtimeInfo}");
+        // Show runtime info from model
+        var modelInfo = model.GetModelInfo();
+        Console.WriteLine($"Runtime: {modelInfo.RuntimeVersion}, Backend: {modelInfo.ExecutionProvider}");
 
         _testResults.Add($"Generator GGUF (fast): Load={loadTime}ms, TTFT={ttft}ms, Tokens={tokenCount}, Tok/s={tokensPerSec:F1}");
     }

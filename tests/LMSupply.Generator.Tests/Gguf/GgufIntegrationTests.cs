@@ -145,7 +145,7 @@ public class GgufIntegrationTests
         info.ModelPath.Should().EndWith(".gguf");
         info.MaxContextLength.Should().BeGreaterThan(0);
         info.ChatFormat.Should().NotBeNullOrEmpty();
-        info.ExecutionProvider.Should().Be("LLamaSharp");
+        info.ExecutionProvider.Should().StartWith("llama-server-");
     }
 }
 

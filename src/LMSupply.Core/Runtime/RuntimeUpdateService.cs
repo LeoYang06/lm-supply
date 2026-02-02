@@ -24,7 +24,7 @@ public sealed class RuntimeUpdateService : IAsyncDisposable
     /// <summary>
     /// Gets or creates a singleton instance for the specified package type.
     /// </summary>
-    /// <param name="packageType">The package type (e.g., "llamasharp", "onnxruntime").</param>
+    /// <param name="packageType">The package type (e.g., "llama-server", "onnxruntime").</param>
     /// <param name="options">Optional update options. Only used on first creation.</param>
     public static RuntimeUpdateService GetInstance(
         string packageType,

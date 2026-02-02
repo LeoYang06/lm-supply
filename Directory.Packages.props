@@ -23,12 +23,6 @@
     <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI.Cuda" Version="0.11.3" />
     <PackageVersion Include="Microsoft.ML.OnnxRuntimeGenAI.DirectML" Version="0.11.3" />
 
-    <!-- LLamaSharp for GGUF model inference (managed wrapper only, native binaries via RuntimeManager) -->
-    <PackageVersion Include="LLamaSharp" Version="0.25.0" />
-    <!-- LLamaSharp Backend packages (for samples and development) -->
-    <PackageVersion Include="LLamaSharp.Backend.Cpu" Version="0.25.0" />
-    <PackageVersion Include="LLamaSharp.Backend.Cuda12" Version="0.25.0" />
-
     <!-- llama-server process management -->
     <PackageVersion Include="ChildProcessGuard" Version="1.0.4" />
 

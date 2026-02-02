@@ -6,6 +6,58 @@ using ChildProcessGuard;
 namespace LMSupply.Llama.Server;
 
 /// <summary>
+/// Server operation mode - determines which llama-server endpoints are available.
+/// </summary>
+public enum ServerMode
+{
+    /// <summary>
+    /// Text generation mode (default). Uses /completion and /v1/chat/completions endpoints.
+    /// </summary>
+    Generation,
+
+    /// <summary>
+    /// Embedding mode. Uses /v1/embeddings endpoint. Requires --embedding flag.
+    /// </summary>
+    Embedding,
+
+    /// <summary>
+    /// Reranking mode. Uses /v1/rerank endpoint. Requires --embedding and --pooling rank flags.
+    /// </summary>
+    Reranking
+}
+
+/// <summary>
+/// Pooling type for embedding/reranking operations.
+/// </summary>
+public enum PoolingType
+{
+    /// <summary>
+    /// No pooling specified (use model default).
+    /// </summary>
+    None,
+
+    /// <summary>
+    /// Mean pooling - average all token embeddings.
+    /// </summary>
+    Mean,
+
+    /// <summary>
+    /// CLS token pooling - use first token embedding.
+    /// </summary>
+    Cls,
+
+    /// <summary>
+    /// Last token pooling - use last token embedding.
+    /// </summary>
+    Last,
+
+    /// <summary>
+    /// Rank pooling - for reranking models (cross-encoder output).
+    /// </summary>
+    Rank
+}
+
+/// <summary>
 /// Configuration for llama-server process.
 /// </summary>
 public sealed class LlamaServerConfig
@@ -52,10 +104,104 @@ public sealed class LlamaServerConfig
     /// </summary>
     public bool FlashAttention { get; init; } = false;
 
+    #region KV Cache Options
+
+    /// <summary>
+    /// KV cache type for keys (f16, q8_0, q4_0, f32).
+    /// Reduces memory usage at the cost of potential quality loss.
+    /// </summary>
+    public string? CacheTypeK { get; init; }
+
+    /// <summary>
+    /// KV cache type for values (f16, q8_0, q4_0, f32).
+    /// Reduces memory usage at the cost of potential quality loss.
+    /// </summary>
+    public string? CacheTypeV { get; init; }
+
+    #endregion
+
+    #region Memory Options
+
+    /// <summary>
+    /// Use memory mapping for model loading (mmap).
+    /// Enables faster loading and sharing between processes. Default: true.
+    /// </summary>
+    public bool? UseMemoryMap { get; init; }
+
+    /// <summary>
+    /// Lock model memory to prevent swapping (mlock).
+    /// Improves latency but may require elevated privileges.
+    /// </summary>
+    public bool? UseMemoryLock { get; init; }
+
+    #endregion
+
+    #region GPU Options
+
+    /// <summary>
+    /// Main GPU index for multi-GPU systems (0-based).
+    /// </summary>
+    public int? MainGpu { get; init; }
+
+    #endregion
+
+    #region RoPE Options
+
+    /// <summary>
+    /// RoPE frequency base for context extension.
+    /// Use with RoPE-scaling-aware models.
+    /// </summary>
+    public float? RopeFreqBase { get; init; }
+
+    /// <summary>
+    /// RoPE frequency scale factor.
+    /// Use with RoPE-scaling-aware models.
+    /// </summary>
+    public float? RopeFreqScale { get; init; }
+
+    #endregion
+
+    #region Multimodal Options (Phase 3)
+
+    /// <summary>
+    /// Path to multimodal projector file (--mmproj).
+    /// Required for vision models like LLaVA.
+    /// </summary>
+    public string? MultimodalProjector { get; init; }
+
+    #endregion
+
+    #region LoRA Options (Phase 3)
+
+    /// <summary>
+    /// Path to LoRA adapter file (--lora).
+    /// </summary>
+    public string? LoraPath { get; init; }
+
+    /// <summary>
+    /// LoRA adapter scale (--lora-scaled).
+    /// </summary>
+    public float? LoraScale { get; init; }
+
+    #endregion
+
     /// <summary>
     /// Additional command line arguments.
     /// </summary>
     public IReadOnlyList<string>? AdditionalArgs { get; init; }
+
+    /// <summary>
+    /// Server operation mode. Default: Generation.
+    /// Embedding mode: enables --embedding flag
+    /// Reranking mode: enables --embedding and --pooling rank
+    /// </summary>
+    public ServerMode Mode { get; init; } = ServerMode.Generation;
+
+    /// <summary>
+    /// Pooling type for embedding/reranking modes.
+    /// Only applicable when Mode is Embedding or Reranking.
+    /// </summary>
+    public PoolingType Pooling { get; init; } = PoolingType.None;
 
     /// <summary>
     /// Timeout for server startup.
@@ -278,6 +424,94 @@ public sealed class LlamaServerProcess : IAsyncDisposable
         if (_config.FlashAttention)
         {
             args.Add("--flash-attn");
+        }
+
+        // KV cache quantization (Phase 1)
+        if (!string.IsNullOrEmpty(_config.CacheTypeK))
+        {
+            args.Add("--cache-type-k");
+            args.Add(_config.CacheTypeK);
+        }
+
+        if (!string.IsNullOrEmpty(_config.CacheTypeV))
+        {
+            args.Add("--cache-type-v");
+            args.Add(_config.CacheTypeV);
+        }
+
+        // Memory options (Phase 1)
+        if (_config.UseMemoryMap.HasValue)
+        {
+            args.Add(_config.UseMemoryMap.Value ? "--mmap" : "--no-mmap");
+        }
+
+        if (_config.UseMemoryLock == true)
+        {
+            args.Add("--mlock");
+        }
+
+        // GPU options (Phase 1)
+        if (_config.MainGpu.HasValue)
+        {
+            args.Add("--main-gpu");
+            args.Add(_config.MainGpu.Value.ToString());
+        }
+
+        // RoPE options (Phase 1)
+        if (_config.RopeFreqBase.HasValue)
+        {
+            args.Add("--rope-freq-base");
+            args.Add(_config.RopeFreqBase.Value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        if (_config.RopeFreqScale.HasValue)
+        {
+            args.Add("--rope-freq-scale");
+            args.Add(_config.RopeFreqScale.Value.ToString("F4", System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        // Multimodal projector (Phase 3)
+        if (!string.IsNullOrEmpty(_config.MultimodalProjector))
+        {
+            args.Add("--mmproj");
+            args.Add($"\"{_config.MultimodalProjector}\"");
+        }
+
+        // LoRA adapter (Phase 3)
+        if (!string.IsNullOrEmpty(_config.LoraPath))
+        {
+            if (_config.LoraScale.HasValue)
+            {
+                args.Add("--lora-scaled");
+                args.Add($"\"{_config.LoraPath}\"");
+                args.Add(_config.LoraScale.Value.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+            }
+            else
+            {
+                args.Add("--lora");
+                args.Add($"\"{_config.LoraPath}\"");
+            }
+        }
+
+        // Embedding/Reranking mode flags
+        if (_config.Mode == ServerMode.Embedding || _config.Mode == ServerMode.Reranking)
+        {
+            args.Add("--embedding");
+        }
+
+        // Pooling type
+        var poolingType = _config.Pooling;
+
+        // For reranking mode, force rank pooling if not explicitly set
+        if (_config.Mode == ServerMode.Reranking && poolingType == PoolingType.None)
+        {
+            poolingType = PoolingType.Rank;
+        }
+
+        if (poolingType != PoolingType.None)
+        {
+            args.Add("--pooling");
+            args.Add(poolingType.ToString().ToLowerInvariant());
         }
 
         if (_config.AdditionalArgs != null)
