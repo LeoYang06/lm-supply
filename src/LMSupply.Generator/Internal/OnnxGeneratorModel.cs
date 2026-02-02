@@ -34,9 +34,24 @@ internal sealed class OnnxGeneratorModel : IGeneratorModel
         // Resolve Auto to actual provider using hardware detection
         _resolvedProvider = HardwareDetector.ResolveProvider(options.Provider);
 
-        // Load model and tokenizer
-        _model = new Model(modelPath);
-        _tokenizer = new Tokenizer(_model);
+        // Load model and tokenizer with proper cleanup on failure
+        // This prevents resource leaks when Tokenizer creation fails after Model is created
+        Model? model = null;
+        Tokenizer? tokenizer = null;
+        try
+        {
+            model = new Model(modelPath);
+            tokenizer = new Tokenizer(model);
+
+            _model = model;
+            _tokenizer = tokenizer;
+        }
+        catch
+        {
+            tokenizer?.Dispose();
+            model?.Dispose();
+            throw;
+        }
 
         // Initialize concurrency limiter
         _concurrencyLimiter = new SemaphoreSlim(
